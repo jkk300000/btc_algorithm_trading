@@ -1,0 +1,6 @@
+.env
+
+binance_btcusdt_1m.csv
+binance_btcusdt_1m_features.csv
+binance_btcusdt_1m_rf.csv
+binance_btcusdt_1m_rf_var.csv
