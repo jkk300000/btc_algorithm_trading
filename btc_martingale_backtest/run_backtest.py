@@ -1,6 +1,6 @@
 import backtrader as bt
 import pandas as pd
-from strategy import MartingaleStrategy
+from strategy_martin import MartingaleStrategy
 from feature_engineering import add_features
 from train_rf_model import train_and_predict
 from calc_var import calc_var, calc_mean_var_from_df
