@@ -237,7 +237,7 @@ def analyze_signal_frequency(data_path):
 
 if __name__ == "__main__":
     # 데이터 파일 경로 설정
-    data_path = "rf_good_results.csv"
+    data_path = "rf_down_good_results.csv"
     
     try:
         results = analyze_signal_frequency(data_path)

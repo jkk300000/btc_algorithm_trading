@@ -580,7 +580,7 @@ def analyze_trade_accuracy_auto(file_path):
 
 if __name__ == "__main__":
     # 파일 경로 설정 (CSV 또는 텍스트 로그 파일)
-    file_path = "trade_logs/trade_logs_20250729_110119.csv"  # 실제 파일 경로로 수정
+    file_path = "trade_logs/trade_logs_20250729_195803.csv"  # 실제 파일 경로로 수정
     
     try:
         results = analyze_trade_accuracy_auto(file_path)

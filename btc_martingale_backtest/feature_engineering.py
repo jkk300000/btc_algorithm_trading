@@ -7,7 +7,17 @@ from squeeze_momentum_core import squeeze_momentum_core
 import talib
 import matplotlib.pyplot as plt
 
+
+
+
+
+
+
 def add_features(input_path, output_path=None, diagnose=True):
+    """
+    ta_lib 라이브러리를 활용해 진입 조건 및 ml 가격 상승 및 하락 예측에 사용할 특정 지표를 계산.
+    
+    """
     df = pd.read_csv(input_path, index_col=0, parse_dates=True)
     # 기존 ta 패키지 기반 코드 (주석 처리)
     # df['rsi_7'] = RSIIndicator(df['close'], window=7).rsi()

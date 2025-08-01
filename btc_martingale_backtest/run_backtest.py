@@ -1,9 +1,12 @@
 import backtrader as bt
 import pandas as pd
+from strategy_new import ModifiedMartingaleStrategy
+from strategy_martin_fixed import MartingaleStrategyFixed
 from strategy_martin import MartingaleStrategy
 from feature_engineering import add_features
 from train_rf_model import train_and_predict
-from calc_var import calc_var, calc_mean_var_from_df
+from train_rf_model_down import train_and_predict_10pct_after_5pct
+from calc_var import calc_var, calc_mean_var_from_df 
 import logging
 import numpy as np
 import os
@@ -90,7 +93,7 @@ class MonteCarloVaRAnalyzer(bt.Analyzer):
             'avg_var': self.avg_var_result,
             'var_history': self.var_history,
             
-        }
+        } 
 
 
 class ArithmeticReturnAnalyzer(bt.Analyzer):
@@ -132,7 +135,7 @@ class CustomDrawDownAnalyzer(bt.Analyzer):
             'max_drawdown_pct': self.max_drawdown_pct
         }
 
-def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=1):
+def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=9):
     print("="*50)
     print(f"Backtest Start: {start_date}")
     print(f"Initial Cash: {cash}, Commission: {commission}, Leverage: {leverage}")
@@ -157,19 +160,9 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     
     # 데이터 확장
     class PandasDataExt(bt.feeds.PandasData):
-        lines = ('rf_pred', 'var', 'var_dollar', 'val', 'atr_14')
-        params = (('rf_pred', -1), ('var', -1), ('var_dollar', -1), ('val', -1), ('atr_14', -1))
+        lines = ('rf_pred', 'rf_pred_down', 'var', 'var_dollar', 'val', 'atr_14')
+        params = (('rf_pred', -1), ('rf_pred_down', -1), ('var', -1), ('var_dollar', -1), ('val', -1), ('atr_14', -1))
     
-
-
-
-
-    
-
-
-
-
-
 
     # 먼저 기본 데이터 생성
     data = PandasDataExt(dataname=df)
@@ -178,12 +171,14 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     # data = bt.feeds.PandasData.resample(data, timeframe=bt.TimeFrame.Minutes, compression=5)
     
     cerebro = bt.Cerebro()
-    cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var)
+    
+    cerebro.addstrategy(ModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
     cerebro.adddata(data) 
     cerebro.broker.setcash(cash)
     cerebro.broker.setcommission(commission=commission, leverage=leverage, margin=0)
     cerebro.broker.set_slippage_perc(0.00015)
-    
+     
     
     cerebro.addanalyzer(ArithmeticReturns, _name='arithmetic_returns')
     cerebro.addanalyzer(MonteCarloVaRAnalyzer, _name='mc_var')
@@ -285,7 +280,8 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
         'total_fees': total_fees,
         'avg_var': avg_var,
         'last_var': last_var,
-        'var_per': var_per
+        'var_per': var_per,
+        'leverage': leverage
     }
 
 
@@ -330,7 +326,9 @@ def save_backtest_results(**kwargs):
         'commission_ratio_profit_pct': kwargs.get('commission_ratio_profit', 0.0),
         'avg_var_dollar': kwargs.get('avg_var', 0.0),
         'last_var_dollar': kwargs.get('last_var', 0.0),
-        'avg_var_percent': kwargs.get('var_per', 0.0)
+        'avg_var_percent': kwargs.get('var_per', 0.0),
+        'rf_threshold': kwargs.get('rf_threshold', 0.0),
+        'leverage': kwargs.get('leverage', 0)
     }
     
     # 수수료 비율 계산
@@ -352,6 +350,7 @@ def run_pipeline():
     print()
     # features_df = add_features('binance_btcusdt_1m.csv')
     # rf_df = train_and_predict(features_df)
+    # rf_df = train_and_predict_10pct_after_5pct(rf_df)  # 하락 예측 모델 추가
     # var_df = calc_var(rf_df, n_jobs=7)
     df = pd.read_csv('C:/선물데이터/binance_btcusdt_1m_rf_var.csv', index_col=0, parse_dates=True)
     run_backtest(df)

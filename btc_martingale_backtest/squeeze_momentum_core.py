@@ -3,6 +3,12 @@ import pandas as pd
 import talib
 
 def squeeze_momentum_core(df, length=20, multKC=1, lengthKC=20, useTrueRange=True):
+
+    """
+    momentum squeeze indicator 지표 계산
+    """
+
+
     close = df['close']
     high = df['high']
     low = df['low']

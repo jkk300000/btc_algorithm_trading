@@ -9,6 +9,10 @@ BINANCE_TIMEZONE = timezone.utc
 BINANCE_FUTURES_START = '2019-09-13T00:00:00Z'
 
 class BinanceFuturesFetcher:
+
+    """
+    바이낸스 거래소 ohlcv 1분봉 데이터 파싱 및 저장
+    """
     def __init__(self, symbol='BTC/USDT:USDT', timeframe='1m', max_limit=1500, rate_limit=0.5):
         load_dotenv()
         self.symbol = symbol

@@ -14,6 +14,13 @@ if not logger.hasHandlers():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+
+"""
+랜덤 워크 모델을 몬테카를로 시뮬레이션에 적용하여 VaR 계산
+"""
+
+
+
 def monte_carlo_var(prices, investment, confidence_level=0.99, days=1, num_simulations=100000, lookback=1000):
     
     arr = cp.array(prices)

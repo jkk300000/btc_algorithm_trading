@@ -14,6 +14,12 @@ if not logger.hasHandlers():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+"""
+특정 기간 동안 0.4% 상승 후 1% 상승할 확률을 예측하는 모델 훈련 및 예측
+"""
+
+
+
 # 0.4% 상승 달성 시점 필터링 함수
 def filter_0_4_rise(df, horizon=190):
     rolling_max = df['close'].shift(-1).rolling(window=horizon, min_periods=1).max()

@@ -16,6 +16,12 @@ if not logger.hasHandlers():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+"""
+가격 0.4% 상승 확률 예측
+
+"""
+
+
 def make_target(df, horizon=190, threshold=0.004):
     # horizon 내 최고가가 기준 상승률을 넘으면 1
     rolling_max = df['close'].shift(-1).rolling(window=horizon, min_periods=1).max()
