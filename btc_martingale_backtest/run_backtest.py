@@ -1,8 +1,9 @@
 import backtrader as bt
 import pandas as pd
-from strategy_new import ModifiedMartingaleStrategy
-from strategy_martin_fixed import MartingaleStrategyFixed
+from strategy_martin_fixed import ModifiedMartingaleStrategy
 from strategy_martin import MartingaleStrategy
+
+from strategy_martin_fixed_pine import StrategyMartinFixedPine
 from feature_engineering import add_features
 from train_rf_model import train_and_predict
 from train_rf_model_down import train_and_predict_10pct_after_5pct
@@ -19,14 +20,27 @@ logger = logging.getLogger(__name__)
 class ArithmeticReturns(bt.Analyzer): # ✅ 해당 클래스는 전략(bt.strategy를 파라미터로 받는 클래스)이 실행되기 전에 전략 값을 가져오므로 
                                       # 전략 실행 후의 값을 가져오고 싶으면 stop() 함수에서 값을 불러올 것
         def __init__(self):
-            self.initial_cash = self.strategy.broker.getcash() # ✅ 초기 예산, 전략이 실행되기 전 이미 설정되어 있는 값이므로 init에서도 사용 가능
+            self.initial_cash = None
             self.net_profit_percent = 0.0
             self.net_profit = 0
+            self.final_value = None
+
+        def start(self):
+            # 전략 시작 시 초기 자본 설정
+            self.initial_cash = self.strategy.broker.getcash()
 
         def notify_cashvalue(self, cash, value):
             self.final_value = value
 
         def stop(self):
+            # final_value가 설정되지 않았으면 현재 broker value를 사용
+            if self.final_value is None:
+                self.final_value = self.strategy.broker.getvalue()
+            
+            # initial_cash가 설정되지 않았으면 현재 broker cash를 사용
+            if self.initial_cash is None:
+                self.initial_cash = self.strategy.broker.getcash()
+            
             self.net_profit_percent = ((self.final_value - self.initial_cash) / self.initial_cash) * 100
             self.net_profit = self.final_value - self.initial_cash
 
@@ -135,7 +149,7 @@ class CustomDrawDownAnalyzer(bt.Analyzer):
             'max_drawdown_pct': self.max_drawdown_pct
         }
 
-def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=9):
+def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=8):
     print("="*50)
     print(f"Backtest Start: {start_date}")
     print(f"Initial Cash: {cash}, Commission: {commission}, Leverage: {leverage}")
@@ -172,8 +186,11 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     
     cerebro = bt.Cerebro()
     
-    cerebro.addstrategy(ModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
-    # cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # 🚀 멀티 전략 실행 (3개 전략 비교)
+    # cerebro.addstrategy(ModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # cerebro.addstrategy(AdaptiveMartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # cerebro.addstrategy(StrategyMartinFixedPine, mean_var=mean_var, leverage=leverage)
     cerebro.adddata(data) 
     cerebro.broker.setcash(cash)
     cerebro.broker.setcommission(commission=commission, leverage=leverage, margin=0)
@@ -187,7 +204,7 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
     cerebro.addanalyzer(ArithmeticReturnAnalyzer, _name='arithret')
     cerebro.addanalyzer(CustomDrawDownAnalyzer, _name='customdd')
-    cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
+    # cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')  # ZeroDivisionError 방지를 위해 제거
     cerebro.addanalyzer(CommissionAnalyzer, _name='commission')
     print(f'Starting Portfolio Value: {cerebro.broker.getvalue():.2f}')
     results = cerebro.run()
@@ -200,7 +217,8 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     sharpe = strat.analyzers.sharpe.get_analysis().get('sharperatio', 0.0) or 0.0
     drawdown = strat.analyzers.drawdown.get_analysis().get('max', {}).get('drawdown', 0.0)
     drawdown_money = strat.analyzers.drawdown.get_analysis().get('max', {}).get('moneydown')
-    total_return = strat.analyzers.returns.get_analysis().get('rtot', 0.0) * 100
+    # total_return = strat.analyzers.returns.get_analysis().get('rtot', 0.0) * 100  # returns 분석기 제거로 인해 주석 처리
+    total_return = 0.0  # returns 분석기 제거로 인해 0으로 설정
     arithmetic_profit_percent = strat.analyzers.arithmetic_returns.get_analysis().get('net_profit_percent', 0.0)
     arithmetic_profit = strat.analyzers.arithmetic_returns.get_analysis().get('net_profit', 0.0)
     trades = strat.analyzers.trades.get_analysis().get('total', {}).get('total', 0)
@@ -219,10 +237,10 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     
     
 
-
+    
     logger.info(f"샤프 비율: {sharpe:.2f}")
     logger.info(f"최대 낙폭: {drawdown:.2f}%, {drawdown_money}")
-    logger.info(f"총 수익률(로그): {total_return:.2f}%")
+    # logger.info(f"총 수익률(로그): {total_return:.2f}%")  # returns 분석기 제거로 인해 주석 처리
     logger.info(f"총 수익률(산술): {arithmetic_profit_percent:.2f}%")
     logger.info(f"총 수익: {arithmetic_profit:.2f}")
     logger.info(f"총 거래 횟수: {trades}")
@@ -245,6 +263,49 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     if var_per is not None:
         logger.info(f"📊 평균 VaR (누적 전체 거래) %: ${var_per:.2f}%")
     
+    # 🚨 마진콜 분석 추가
+    if hasattr(strat, 'margin_called') and strat.margin_called:
+        logger.info("🚨 마진콜 발생!")
+        logger.info(f"🚨 마진콜 발생 시점의 자본: ${strat.broker.getvalue():.2f}")
+        
+        # 마진콜 관련 추가 정보 출력
+        if hasattr(strat, 'consecutive_losses'):
+            logger.info(f"🚨 연속 손실 횟수: {strat.consecutive_losses}")
+        
+        if hasattr(strat, 'total_profit'):
+            logger.info(f"🚨 총 손실률: {strat.total_profit:.2f}%")
+        
+        # 마진콜 발생 시 거래 로그에서 마진콜 정보 추출
+        if hasattr(strat, 'trade_logs') and strat.trade_logs:
+            margin_call_logs = [log for log in strat.trade_logs if log.get('action_type') == 'margin_call']
+            if margin_call_logs:
+                latest_margin_call = margin_call_logs[-1]
+                logger.info(f"🚨 마지막 마진콜 정보:")
+                logger.info(f"   - 청산가: ${latest_margin_call.get('liquidation_price', 0):.2f}")
+                logger.info(f"   - 현재 하락률: {latest_margin_call.get('current_drop_percentage', 0):.2f}%")
+                logger.info(f"   - 실제 레버리지: {latest_margin_call.get('actual_leverage', 0):.1f}배")
+        
+        logger.info("🚨 마진콜로 인해 모든 포지션이 강제 청산되었습니다.")
+    else:
+        logger.info("✅ 마진콜 미발생 - 안전한 거래 완료")
+    
+    # 마진콜 정보 추출
+    margin_called = hasattr(strat, 'margin_called') and strat.margin_called
+    consecutive_losses = getattr(strat, 'consecutive_losses', 0)
+    total_profit = getattr(strat, 'total_profit', 0.0)
+    
+    # 마진콜 상세 정보
+    margin_call_info = {}
+    if margin_called and hasattr(strat, 'trade_logs') and strat.trade_logs:
+        margin_call_logs = [log for log in strat.trade_logs if log.get('action_type') == 'margin_call']
+        if margin_call_logs:
+            latest_margin_call = margin_call_logs[-1]
+            margin_call_info = {
+                'liquidation_price': latest_margin_call.get('liquidation_price', 0),
+                'current_drop_percentage': latest_margin_call.get('current_drop_percentage', 0),
+                'actual_leverage': latest_margin_call.get('actual_leverage', 0)
+            }
+    
     # 백테스팅 결과를 CSV로 저장
     save_backtest_results(
         sharpe=sharpe,
@@ -266,7 +327,11 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
         start_date=start_date,
         cash=cash,
         commission=commission,
-        leverage=leverage
+        leverage=leverage,
+        margin_called=margin_called,
+        consecutive_losses=consecutive_losses,
+        total_profit=total_profit,
+        margin_call_info=margin_call_info
     )
     
     return {
@@ -281,7 +346,12 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
         'avg_var': avg_var,
         'last_var': last_var,
         'var_per': var_per,
-        'leverage': leverage
+        'leverage': leverage,
+        # 🚨 마진콜 관련 정보 추가
+        'margin_called': margin_called,
+        'consecutive_losses': consecutive_losses,
+        'total_profit': total_profit,
+        'margin_call_info': margin_call_info
     }
 
 
@@ -328,7 +398,14 @@ def save_backtest_results(**kwargs):
         'last_var_dollar': kwargs.get('last_var', 0.0),
         'avg_var_percent': kwargs.get('var_per', 0.0),
         'rf_threshold': kwargs.get('rf_threshold', 0.0),
-        'leverage': kwargs.get('leverage', 0)
+        'leverage': kwargs.get('leverage', 0),
+        # 🚨 마진콜 관련 정보 추가
+        'margin_called': kwargs.get('margin_called', False),
+        'consecutive_losses': kwargs.get('consecutive_losses', 0),
+        'total_profit_loss': kwargs.get('total_profit', 0.0),
+        'liquidation_price': kwargs.get('margin_call_info', {}).get('liquidation_price', 0.0),
+        'current_drop_percentage': kwargs.get('margin_call_info', {}).get('current_drop_percentage', 0.0),
+        'actual_leverage_at_margin_call': kwargs.get('margin_call_info', {}).get('actual_leverage', 0.0)
     }
     
     # 수수료 비율 계산

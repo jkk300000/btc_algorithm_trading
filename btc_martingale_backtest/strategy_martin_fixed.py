@@ -45,13 +45,13 @@ class ModifiedMartingaleStrategy(bt.Strategy):
     
     params = dict(
         inputTrade=10,
-        profit=1.0012 ,
+        profit=1.004 ,
         profit_partial=1.005,  # 0.4%에서 1.5%로 상향 조정
         leverage=0,  # 포지션 크기 계산용 10배
         dividedLongCount=20,
         additionalEntryPrice=1500,
         max_var=0.05,  # 12% (균형잡힌 설정)
-        rf_threshold=0.8, # RandomForest 확률 임계값
+        rf_threshold=0.7, # RandomForest 확률 임계값
         rf_threshold_partial=0.6, # RandomForest 확률 임계값
         # rf_threshold_down=0.9, # 하락 예측 임계값 (70% 이상이면 거래 회피)
         # rf_threshold_down_martingale=0.9, # 물타기 시 하락 예측 임계값 (80% 이상이면 물타기 회피)
@@ -94,6 +94,14 @@ class ModifiedMartingaleStrategy(bt.Strategy):
         
         # 초기 진입 수량 고정 저장
         self.initial_entry_size = None
+        
+        # 🆕 자본 분할 관리
+        self.first_half_capital = None  # 첫 번째 절반 자본 (1-9번 진입용)
+        self.second_half_capital = None  # 두 번째 절반 자본 (10번째 긴급 진입용)
+        self.emergency_position_size = None  # 긴급 진입용 포지션 크기
+        
+        # 🆕 긴급 진입 플래그
+        self.emergency_entry_executed = False  # 긴급 진입 실행 여부
         
         # 거래 로그 저장용
         self.trade_logs = []
@@ -203,11 +211,31 @@ class ModifiedMartingaleStrategy(bt.Strategy):
         
 
 
-        # 동적 자본 계산 (누적 투자 고려)
-        initial_capital = self.broker.getvalue() * self.p.leverage
-        capitalPerOnce = initial_capital / self.p.dividedLongCount
+        # 🆕 동적 자본 분할 계산 (자본 증가 시 재계산)
+        current_capital = self.broker.getvalue() * self.p.leverage
+        
+        # 자본이 변경되었거나 초기 설정인 경우 재계산
+        if (self.first_half_capital is None or 
+            abs(current_capital - (self.first_half_capital + self.second_half_capital)) > 1):
+            
+            self.first_half_capital = current_capital / 2  # 첫 번째 절반
+            self.second_half_capital = current_capital / 2  # 두 번째 절반 (긴급 진입용)
+            self.emergency_position_size = None  # 긴급 진입 크기 재계산 필요
+            
+            # self.log(f"💰 자본 분할 재설정 - 현재자본: {current_capital:.2f}")
+            # self.log(f"💰 첫 번째 절반: {self.first_half_capital:.2f}, 두 번째 절반: {self.second_half_capital:.2f}")
+        
+        # 일반 진입용 포지션 크기 (첫 번째 절반 자본 사용)
+        capitalPerOnce = self.first_half_capital / self.p.dividedLongCount
         positionSize = capitalPerOnce / close
         positionSize = np.round(positionSize, 3)
+        
+        # 긴급 진입용 포지션 크기 (두 번째 절반 자본 사용) - 동적 재계산
+        if self.emergency_position_size is None:
+            emergency_capitalPerOnce = self.second_half_capital / self.p.dividedLongCount
+            self.emergency_position_size = emergency_capitalPerOnce / close
+            self.emergency_position_size = np.round(self.emergency_position_size, 3)
+            # self.log(f"🚨 긴급 진입용 포지션 크기 재설정: {self.emergency_position_size}")
 
 
         # 틱 카운트 증가
@@ -272,16 +300,16 @@ class ModifiedMartingaleStrategy(bt.Strategy):
                                rf_pred=rf_pred,
                             #    rf_pred_down=rf_pred_down,
                                threshold=self.p.rf_threshold,
-                               take_profit=self.take_profit)
+                               take_profit=self.take_profit,
+                               capital_used='first_half')  # 첫 번째 절반 자본 사용 표시
 
-        if self.entryCount >= 1 and self.entryCount < self.p.inputTrade:
+        # 일반 물타기 조건 (1-9번째 진입) - 긴급 진입 이후에는 실행하지 않음
+        if self.entryCount >= 1 and self.entryCount < self.p.inputTrade and not self.emergency_entry_executed:
             # self.log(f'물타기 조건')
             stoploss = self.p.additionalEntryPrice - (2 * atr)
             price_gap = self.binance_calculator.get_average_price() - close  # 🆕 바이낸스 평균가격 사용
-           
-
             
-            if price_gap > stoploss * self.entryCount and rf_pred >= self.p.rf_threshold_partial :
+            if price_gap > stoploss * self.entryCount and rf_pred >= self.p.rf_threshold_partial:
                 # 🆕 바이낸스 평균가격 계산기 사용
                 self.binance_calculator.add_position(close, positionSize)
                 
@@ -304,9 +332,52 @@ class ModifiedMartingaleStrategy(bt.Strategy):
                                     position_size=positionSize,
                                     avg_price_binance=binance_avg,
                                     entry_count=self.entryCount,
-                                    rf_pred_partial=self.p.rf_threshold_partial
+                                    rf_pred_partial=self.p.rf_threshold_partial,
+                                    capital_used='first_half'  # 첫 번째 절반 자본 사용 표시
                                     # rf_pred_down=rf_pred_down
                                     )
+        
+        # 🆕 10개 포지션이 모두 진입된 상태에서 평균가 대비 -10%일 때 추가 긴급 진입
+        if self.entryCount == self.p.inputTrade and not self.emergency_entry_executed:  # 10개 포지션이 모두 진입된 상태이고 긴급 진입이 아직 실행되지 않았을 때
+            # 평균가에서 10% 이상 하락 시 현재까지 투입한 전체 포지션과 같은 수량을 추가 진입
+            drop_percentage = ((self.binance_calculator.get_average_price() - close) / self.binance_calculator.get_average_price()) * 100
+            
+            if drop_percentage >= 6.0 and rf_pred >= self.p.rf_threshold_partial:
+                # 🆕 현재까지 투입한 전체 포지션과 같은 수량을 긴급 진입
+                total_position_size = self.tracked_position_size  # 현재까지 투입한 전체 포지션 크기
+                emergency_position_size = total_position_size  # 전체 포지션과 같은 수량
+                
+                # 🆕 바이낸스 평균가격 계산기 사용
+                self.binance_calculator.add_position(close, emergency_position_size)
+                
+                self.buy(size=emergency_position_size)
+                self.entryCount += 1  # 11번째 진입으로 카운트
+                self.var_history.append(var_dollar)  # VaR 히스토리에 저장
+                
+                # 🆕 긴급 진입 플래그 설정
+                self.emergency_entry_executed = True
+                
+                # 포지션 크기 추적
+                self.tracked_position_size += emergency_position_size
+                self.tracked_position_value = self.tracked_position_size * close
+                
+                # 로그 출력 (바이낸스 평균가격 사용)
+                binance_avg = self.binance_calculator.get_average_price()
+                self.log(f"[🚨 긴급물타기] 진입가: {close}, 바이낸스평균가: {binance_avg:.2f}, entryCount: {self.entryCount}")
+                self.log(f"[🚨 긴급물타기] 하락률: {drop_percentage:.1f}%, 진입수량: {emergency_position_size:.6f} (전체 포지션과 같은 수량)")
+                self.log(f"[🚨 긴급물타기] 현재까지 투입한 총 포지션: {total_position_size:.6f}")
+                self.log(f"[포지션추적] 누적크기: {self.tracked_position_size:.6f}, 현재가치: {self.tracked_position_value:.2f}")
+                
+                # 거래 로그 저장
+                self.save_trade_log('emergency_martingale', 
+                                    entry_price=close, 
+                                    position_size=emergency_position_size,
+                                    avg_price_binance=binance_avg,
+                                    entry_count=self.entryCount,
+                                    drop_percentage=drop_percentage,
+                                    rf_pred_partial=self.p.rf_threshold_partial,
+                                    total_position_before=total_position_size,
+                                    capital_used='total_position_100%')  # 전체 포지션과 같은 수량 사용 표시
         # 부분 청산
         if self.entryCount >= 2 and (close > self.binance_calculator.get_average_price() * 1.003):  # 🆕 바이낸스 평균가격 사용
             # 초기 진입 수량을 제외한 나머지 부분청산
@@ -384,6 +455,14 @@ class ModifiedMartingaleStrategy(bt.Strategy):
             # 초기 진입 수량 초기화
             self.initial_entry_size = None
             self.take_profit = self.params.profit  # 초기화
+            
+            # 🆕 자본 분할 초기화 (다음 거래를 위해)
+            self.first_half_capital = None
+            self.second_half_capital = None
+            self.emergency_position_size = None
+            
+            # 🆕 긴급 진입 플래그 초기화
+            self.emergency_entry_executed = False
             
             self.log(f"[최종청산] 청산가: {close}, 바이낸스평균가: {final_avg_price:.2f}, entryCount: {self.entryCount}, 자본: {self.broker.getvalue():.2f}")
             self.log(f"[포지션추적] 누적크기: {self.tracked_position_size:.6f}, 현재가치: {self.tracked_position_value:.2f}")
@@ -464,6 +543,14 @@ class ModifiedMartingaleStrategy(bt.Strategy):
                 
                 # 초기 진입 수량 초기화
                 self.initial_entry_size = None
+                
+                # 🆕 자본 분할 초기화 (마진콜 후 다음 거래를 위해)
+                self.first_half_capital = None
+                self.second_half_capital = None
+                self.emergency_position_size = None
+                
+                # 🆕 긴급 진입 플래그 초기화
+                self.emergency_entry_executed = False
                 return
 
     def stop(self):
@@ -481,6 +568,14 @@ class ModifiedMartingaleStrategy(bt.Strategy):
         print(f"최종 평균가격: ${self.binance_calculator.get_average_price():.2f}")
         print(f"최종 포지션 수량: {self.binance_calculator.get_total_quantity():.6f}")
         print(f"최종 포지션 가치: ${self.binance_calculator.get_total_value():.2f}")
+        
+        # 🆕 자본 분할 정보 출력
+        if self.first_half_capital is not None:
+            print(f"\n=== 자본 분할 정보 ===")
+            print(f"첫 번째 절반 자본: ${self.first_half_capital:.2f} (1-9번 진입용)")
+            print(f"두 번째 절반 자본: ${self.second_half_capital:.2f} (10번째 긴급 진입용)")
+            if self.emergency_position_size is not None:
+                print(f"긴급 진입용 포지션 크기: {self.emergency_position_size}")
         
         # 현재가 기준 손익 계산
         if self.binance_calculator.get_total_quantity() > 0:

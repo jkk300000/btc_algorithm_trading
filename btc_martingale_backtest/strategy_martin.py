@@ -45,14 +45,14 @@ class MartingaleStrategy(bt.Strategy):
     
     params = dict(
         inputTrade=10,
-        profit=1.0012 ,
+        profit=1.001 ,
         profit_partial=1.005,  # 0.4%에서 1.5%로 상향 조정
         leverage=0,  # 포지션 크기 계산용 10배
         dividedLongCount=20,
         additionalEntryPrice=1500,
         max_var=0.05,  # 12% (균형잡힌 설정)
         rf_threshold=0.7, # RandomForest 확률 임계값
-        rf_threshold_partial=0.6, # RandomForest 확률 임계값
+        rf_threshold_partial=0.8, # RandomForest 확률 임계값
         # rf_threshold_down=0.9, # 하락 예측 임계값 (70% 이상이면 거래 회피)
         # rf_threshold_down_martingale=0.9, # 물타기 시 하락 예측 임계값 (80% 이상이면 물타기 회피)
         mean_var=None,     # 전체 백테스팅 구간 평균 VaR

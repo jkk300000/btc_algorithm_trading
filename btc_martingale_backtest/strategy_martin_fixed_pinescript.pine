@@ -1,0 +1,237 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © s4wlsrud
+
+// 비트겟 기준 25000% 수익, mmd 84
+
+// 물릴거 대비해서 10개 다 물타기 한 후에 총 투입 금액 100% 투입. 기준은 20%하락
+
+
+//@version=6
+strategy("btc atr 물타기 바이낸스, 정확한 평단가 계산 적용 1초", overlay=true, fill_orders_on_standard_ohlc=true, initial_capital=550, default_qty_type=strategy.percent_of_equity, default_qty_value=100, process_orders_on_close=false, commission_value=0.05, margin_long=1, slippage = 15)
+import PineCoders/Time/5
+
+// Convert dates to timestamps (defined only once)
+start_time = input.time(timestamp("2025-07-09T09:36:00+09:00"), title="자동매매 시작")
+end_time = input.time(timestamp("2026-12-30T11:09:00+09:00"), title="자동매매 종료")
+
+in_backtest_period = (time >= start_time) and (time <= end_time)
+
+// 🆕 1초봉 데이터 가져오기 (na일 때 1분봉 데이터 사용)
+close_1s = request.security('BINANCE:BTCUSDT.P', '1S', close)
+high_1s = request.security('BINANCE:BTCUSDT.P', '1S', high)
+low_1s = request.security('BINANCE:BTCUSDT.P', '1S', low)
+
+// 🆕 1초봉 데이터 사용 가능 여부 확인
+var bool use_1s_data = false
+if not na(close_1s)
+    use_1s_data := true
+
+// 🆕 1초봉 데이터가 na일 때 1분봉 데이터로 대체
+close_price = na(close_1s) ? close : close_1s
+high_price = na(high_1s) ? high : high_1s
+low_price = na(low_1s) ? low : low_1s
+
+// --- 스퀴즈 모멘텀 지표 ---
+length = input(20, title="BB Length")
+mult = input(2.0, title="BB MultFactor")
+lengthKC = input(20, title="KC Length")
+multKC = input(1, title="KC MultFactor")
+useTrueRange = input.bool(true, title="Use TrueRange (KC)")
+
+// Calculate BB
+source = close
+basis = ta.sma(source, length)
+dev = multKC * ta.stdev(source, length)
+upperBB = basis + dev
+lowerBB = basis - dev
+
+// Calculate KC
+ma = ta.sma(source, lengthKC)
+range1 = useTrueRange ? ta.tr : (high - low)
+rangema = ta.sma(range1, lengthKC)
+upperKC = ma + rangema * multKC
+lowerKC = ma - rangema * multKC
+
+sqzOn = (lowerBB > lowerKC) and (upperBB < upperKC)
+sqzOff = (lowerBB < lowerKC) and (upperBB > upperKC)
+noSqz = (sqzOn == false) and (sqzOff == false)
+
+val = ta.linreg(source - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
+
+// bcolor 계산
+bcolor = val > 0 ? (val > nz(val[1]) ? color.lime : color.green) : (val < nz(val[1]) ? color.red : color.maroon)
+
+// scolor 계산
+scolor = noSqz ? color.blue : sqzOn ? color.black : color.gray
+
+highest_price = ta.highest(high, 1)
+lowest_price = ta.lowest(low, 1)
+
+//atr
+atr = ta.atr(14)
+
+//vwap
+vwap = ta.vwap(hlc3)
+vwap4 = request.security('BINANCE:BTCUSDT.P', '240', vwap)
+
+// ema
+ema350 = ta.ema(close, 350)
+
+// --- 바이낸스 평균가 계산 변수들 ---
+var float total_cost = 0.0  // 총 매수 금액
+var float total_quantity = 0.0  // 총 매수 수량
+var float avgPrice = 0.0  // 바이낸스 평균가
+
+// 🆕 자본 분할 관리
+var float first_half_capital = na  // 첫 번째 절반 자본 (1-10번 진입용)
+var float second_half_capital = na  // 두 번째 절반 자본 (긴급 진입용)
+
+float capitalPerOnce = na
+var float positionSize = na
+var float initialEntryPrice = na
+var float secondEntryPrice = na
+
+var int entryCount = 0
+
+int inputTrade = input.int(defval = 10, title= "거래 투입 횟수/최대 값은 시드 분할 값과 같음", minval = 1)
+float profit = input.float(defval = 1.0098, title = "익절%")
+int leverage = input.int(defval=10, title="레버리지", minval=1, maxval=100)
+int dividedLongCount = input.int(defval=20, title="시드 분할")
+int additionalEntryPrice = input.int(defval = 100, title = "물타기 한도", minval=1)
+
+float initial_capital = strategy.equity * leverage
+
+// 🆕 긴급 진입 플래그
+var bool emergency_entry_executed = false  // 긴급 진입 실행 여부
+
+// 🆕 동적 자본 분할 계산 (자본 증가 시 재계산)
+if na(first_half_capital) or math.abs(initial_capital - (first_half_capital + second_half_capital)) > 1
+    first_half_capital := initial_capital / 2  // 첫 번째 절반
+    second_half_capital := initial_capital / 2  // 두 번째 절반 (긴급 진입용)
+
+// 일반 진입용 포지션 크기 (첫 번째 절반 자본 사용)
+capitalPerOnce := first_half_capital / dividedLongCount
+
+bool exitCondition = false
+
+var bool afterPartialExit = false
+var float entryPrice = na
+
+var bool time_frame_minute = false
+
+var float initialPositionSize = na  // 초기 positionSize 저장
+var float stoploss = na
+
+// 바이낸스 평균가 계산 함수
+calculate_binance_avg_price(current_total_cost, current_total_quantity, new_price, new_quantity) =>
+    if current_total_quantity <= 0
+        new_price
+    else
+        new_total_cost = current_total_cost + (new_price * new_quantity)
+        new_total_quantity = current_total_quantity + new_quantity
+        new_total_cost / new_total_quantity
+
+// Entry Logic
+positionSize := math.round(capitalPerOnce / close * 1000)/ 1000
+stoploss := additionalEntryPrice - (2 * atr)   
+
+// 일반 진입 조건 (1-10번째 진입)
+if strategy.opentrades < inputTrade and positionSize > 0 
+    // First Entry - 🆕 1초봉 가격 사용
+    if (val > 0 and entryCount == 0 and close > open) 
+        initialEntryPrice := close_1s  // 🆕 1초봉 close 사용
+        initialPositionSize := positionSize  // 초기 진입 시 positionSize 저장
+        
+        // 바이낸스 평균가 계산 - 🆕 1초봉 가격 사용
+        total_cost := close_1s * positionSize
+        total_quantity := positionSize
+        avgPrice := total_cost / total_quantity
+        
+        strategy.order("longPosition", strategy.long, qty=positionSize, limit=close_1s)  // 🆕 1초봉 가격으로 지정가 주문
+        
+        entryCount := 1
+       
+        log.info("Entry 1 at {0} (1초봉), avgPrice: {1}, initialPositionSize : {2}", close_1s, avgPrice, initialPositionSize)
+        
+    // 일반 물타기 조건 (1-9번째 진입) - 긴급 진입 이후에는 실행하지 않음
+    if (entryCount >= 1 and entryCount < inputTrade and not emergency_entry_executed)
+        stoploss := additionalEntryPrice - (2 * atr)
+        price_gap = avgPrice - close_1s  // 🆕 1초봉 가격 사용
+        
+        if price_gap > stoploss * entryCount and close > ema350
+            secondEntryPrice := close_1s  // 🆕 1초봉 close 사용
+            
+            // 바이낸스 평균가 계산 (증분 방식) - 🆕 1초봉 가격 사용
+            new_cost = close_1s * positionSize
+            total_cost := total_cost + new_cost
+            total_quantity := total_quantity + positionSize
+            avgPrice := total_cost / total_quantity
+            
+            strategy.order("longPosition", strategy.long, qty=positionSize, limit=close_1s)  // 🆕 1초봉 가격으로 지정가 주문
+            
+            entryCount += 1
+            
+            log.info("Entry {0} at {1} (1초봉), avgPrice: {2}", entryCount, close_1s, avgPrice)
+
+// 🆕 긴급 진입 조건 (별도 블록으로 분리)
+if (entryCount == inputTrade and not emergency_entry_executed)  // 10개 포지션이 모두 진입된 상태이고 긴급 진입이 아직 실행되지 않았을 때
+    // 평균가에서 20% 이상 하락 시 현재까지 투입한 전체 포지션과 같은 수량을 추가 진입
+    drop_percentage = ((avgPrice - close_1s) / avgPrice) * 100  // 🆕 1초봉 가격 사용
+    
+    if drop_percentage >= 20
+        // 🆕 현재까지 투입한 전체 포지션과 같은 수량을 긴급 진입
+        total_position_size = total_quantity  // 현재까지 투입한 전체 포지션 크기
+        emergency_position_size = total_position_size  // 전체 포지션과 같은 수량
+        
+        // 바이낸스 평균가 계산 (증분 방식) - 🆕 1초봉 가격 사용
+        new_cost = close_1s * emergency_position_size
+        total_cost := total_cost + new_cost
+        total_quantity := total_quantity + emergency_position_size
+        avgPrice := total_cost / total_quantity
+        
+        strategy.order("longPosition", strategy.long, qty=emergency_position_size, limit=close_1s)  // 🆕 1초봉 가격으로 지정가 주문
+        
+        entryCount += 1
+        
+        // 🆕 긴급 진입 플래그 설정
+        emergency_entry_executed := true
+        
+        log.info("🚨 긴급물타기 - Entry {0} at {1} (1초봉), avgPrice: {2}, 하락률: {3}%, 진입수량: {4} (전체 포지션과 같은 수량)", entryCount, close_1s, avgPrice, drop_percentage, emergency_position_size)
+        log.info("🚨 긴급물타기 - 현재까지 투입한 총 포지션: {0}", total_position_size)
+
+// Partial Exit Logic (바이낸스 방식) - 🆕 1초봉 가격 사용
+if (entryCount >= 2 and (close > avgPrice * 1.0035) and not na(avgPrice)) 
+    qty = strategy.position_size - initialPositionSize  // 현재 포지션에서 초기 positionSize를 제외한 수량 청산
+    
+    // 바이낸스 방식: 매도 시 평균가 유지, 수량만 감소
+    removed_cost = avgPrice * qty
+    total_cost := total_cost - removed_cost
+    total_quantity := total_quantity - qty
+    
+    strategy.order("partialExit", strategy.short, qty=qty, limit=close_1s, comment="초기 투입 물량 빼고 청산")  // 🆕 1초봉 가격으로 지정가 청산
+    log.info("초기 투입 물량 빼고 청산 at {0} (1초봉), avgPrice: {1}, qty : {2}, strategy.position_size : {3}   ", close_1s, avgPrice, qty, strategy.position_size)
+    entryCount := 1
+
+// 전체 청산 - 🆕 1초봉 가격 사용
+if (entryCount == 1 and (close >= (avgPrice * profit))) 
+    qty=positionSize
+    strategy.order("fullExit", strategy.short, qty=qty, limit=close_1s, comment="전체 청산")  // 🆕 1초봉 가격으로 지정가 청산
+    log.info("exit all at {0} (1초봉), avgPrice: {1}", close_1s, avgPrice)
+    
+    // 바이낸스 방식: 모든 포지션 청산 시 변수 초기화
+    avgPrice := 0
+    total_cost := 0
+    total_quantity := 0
+    initialEntryPrice := 0
+    secondEntryPrice := 0
+    
+    entryCount := 0
+    
+    // 🆕 자본 분할 초기화 (다음 거래를 위해)
+    first_half_capital := na
+    second_half_capital := na
+    
+    // 🆕 긴급 진입 플래그 초기화
+    emergency_entry_executed := false
+
+// plot(avgPrice, color = color.black, style = plot.style_line) 
