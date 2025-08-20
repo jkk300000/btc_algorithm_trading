@@ -1,0 +1,24 @@
+timestamp,start_date,initial_cash,commission,leverage,sharpe_ratio,max_drawdown_pct,max_drawdown_money,total_return_log_pct,arithmetic_return_pct,total_profit,total_trades,total_commission_tradeanalyzer,total_slippage_tradeanalyzer,total_fees_tradeanalyzer,total_commission_commissionanalyzer,total_fees_commissionanalyzer,avg_commission_per_trade,commission_ratio_profit_pct,avg_var_dollar,last_var_dollar,avg_var_percent,rf_threshold,margin_called,consecutive_losses,total_profit_loss,liquidation_price,current_drop_percentage,actual_leverage_at_margin_call
+20250805_153942,2022-09-01,1000,0.0005,9,1.526460929115544,51.236316918529816,1713.0789623720962,0.0,439.72377299004893,4397.237729900489,1198,0.0,0.0,0.0,1051.836550372517,1051.836550372517,0.8787272768358544,23.92039309633415,1306.4731670104081,878.5873193566101,-0.000747552567553,0.0,False,0,0.0,0.0,0.0,0.0
+
+params = dict(
+        inputTrade=10,
+        profit=1.008 ,
+        profit_partial=1.005,  # 0.4%에서 1.5%로 상향 조정
+        leverage=9,  # 포지션 크기 계산용 10배
+        dividedLongCount=20,
+        additionalEntryPrice=1500, 
+        max_var=0.05,  # 12% (균형잡힌 설정)
+        rf_threshold=0.7, # RandomForest 확률 임계값
+        rf_threshold_partial=0.6, # RandomForest 확률 임계값
+        # rf_threshold_down=0.9, # 하락 예측 임계값 (70% 이상이면 거래 회피)
+        # rf_threshold_down_martingale=0.9, # 물타기 시 하락 예측 임계값 (80% 이상이면 물타기 회피)
+        mean_var=None,     # 전체 백테스팅 구간 평균 VaR
+        max_var_dollar=1000,  # VaR 달러 기준 예시
+        
+        save_trade_log=True,  # 거래 로그 CSV 저장 여부
+        trade_log_dir='trade_logs'  # 거래 로그 저장 디렉토리
+    )
+
+
+    strategy_martin_fixed.py

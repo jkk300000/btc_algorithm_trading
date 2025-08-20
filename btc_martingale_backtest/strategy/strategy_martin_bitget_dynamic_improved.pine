@@ -1,0 +1,366 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © s4wlsrud
+
+// 바이낸스 백테스팅 결과가 비트겟 보다 더 안전함 (2019 ~ 2021 백테스트 시 바이낸스는 수익이지만 비트겟은 청산/ 2022.09 ~ 현재 백테스트 시에도 10% 정도 더 높음 / 같은 기간 동안 이더리움을 보유했을 때 보다 80% 정도 더 성과가 좋음)
+
+//@version=6
+strategy("btc atr 물타기 바이낸스 1분봉 ETHUSDT.P - 개선된 청산가", overlay=true, fill_orders_on_standard_ohlc=true, initial_capital=5000, default_qty_type=strategy.percent_of_equity, default_qty_value=100, process_orders_on_close=false, commission_value=0.05, margin_long=1, slippage = 15)
+import PineCoders/Time/5
+
+// Convert dates to timestamps (defined only once)
+start_time = input.time(timestamp("2025-07-09T09:36:00+09:00"), title="자동매매 시작")
+end_time = input.time(timestamp("2026-12-30T11:09:00+09:00"), title="자동매매 종료")
+
+in_backtest_period = (time >= start_time) and (time <= end_time)
+
+// --- 스퀴즈 모멘텀 지표 ---
+length = input(20, title="BB Length")
+mult = input(2.0, title="BB MultFactor")
+lengthKC = input(20, title="KC Length")
+multKC = input(1, title="KC MultFactor")
+useTrueRange = input.bool(true, title="Use TrueRange (KC)")
+
+// Calculate BB
+source = close
+basis = ta.sma(source, length)
+dev = multKC * ta.stdev(source, length)
+upperBB = basis + dev
+lowerBB = basis - dev
+
+// Calculate KC
+ma = ta.sma(source, lengthKC)
+range1 = useTrueRange ? ta.tr : (high - low)
+rangema = ta.sma(range1, lengthKC)
+upperKC = ma + rangema * multKC
+lowerKC = ma - rangema * multKC
+
+sqzOn = (lowerBB > lowerKC) and (upperBB < upperKC)
+sqzOff = (lowerBB < lowerKC) and (upperBB > upperKC)
+noSqz = (sqzOn == false) and (sqzOff == false)
+
+val = ta.linreg(source - math.avg(math.avg(ta.highest(high, lengthKC), ta.lowest(low, lengthKC)), ta.sma(close, lengthKC)), lengthKC, 0)
+
+// bcolor 계산
+bcolor = val > 0 ? (val > nz(val[1]) ? color.lime : color.green) : (val < nz(val[1]) ? color.red : color.maroon)
+
+// scolor 계산
+scolor = noSqz ? color.blue : sqzOn ? color.black : color.gray
+
+highest_price = ta.highest(high, 1)
+lowest_price = ta.lowest(low, 1)
+
+//atr
+atr = ta.atr(14)
+
+//vwap
+vwap = ta.vwap(hlc3)
+vwap4 = request.security('BINANCE:BTCUSDT.P', '240', vwap)
+
+// ema
+ema350 = ta.ema(close, 350)
+
+// --- 바이낸스 평균가 계산 변수들 ---
+var float total_cost = 0.0  // 총 매수 금액
+var float total_quantity = 0.0  // 총 매수 수량
+var float avgPrice = 0.0  // 바이낸스 평균가
+
+// 🆕 자본 분할 관리
+var float first_half_capital = na  // 첫 번째 절반 자본 (1-10번 진입용)
+var float second_half_capital = na  // 두 번째 절반 자본 (긴급 진입용)
+
+float capitalPerOnce = na
+var float positionSize = na
+var float initialEntryPrice = na
+var float secondEntryPrice = na
+
+var int entryCount = 0
+
+int inputTrade = input.int(defval = 10, title= "거래 투입 횟수/최대 값은 시드 분할 값과 같음", minval = 1)
+float profit = input.float(defval = 1.01, title = "익절%")
+float partial_profit = input.float(defval = 1.01, title = "부분 청산 익절 %")
+int leverage = input.int(defval=5, title="레버리지", minval=1, maxval=100)
+int dividedLongCount = input.int(defval=20, title="시드 분할")
+int additionalEntryPrice = input.int(defval = 70, title = "물타기 한도", minval=1)
+float atr_multiplier = input.float(defval = 2.5, title = "atr 범위")
+
+float initial_capital = strategy.equity * leverage
+var float cycle_start_capital = na  // 🆕 사이클 시작 시 자본 (레버리지 계산용)
+// 🆕 긴급 진입 플래그
+var bool emergency_entry_executed = false  // 긴급 진입 실행 여부
+
+// 🆕 동적 자본 분할 계산 (자본 증가 시 재계산)
+if na(first_half_capital) or math.abs(initial_capital - (first_half_capital + second_half_capital)) > 1
+    first_half_capital := initial_capital / 2  // 첫 번째 절반
+    second_half_capital := initial_capital / 2  // 두 번째 절반 (긴급 진입용)
+
+// 일반 진입용 포지션 크기 (첫 번째 절반 자본 사용)
+capitalPerOnce := first_half_capital / dividedLongCount
+
+bool exitCondition = false
+
+var bool afterPartialExit = false
+var float entryPrice = na
+
+var bool time_frame_minute = false
+
+var float initialPositionSize = na  // 초기 positionSize 저장
+var float stoploss = na
+
+// 🆕 개선된 바이낸스 청산가 계산 변수들
+var float liquidation_price = na
+var float total_position_value = 0.0
+
+// 🆕 개선된 동적 레버리지 계산 함수 (바이낸스 공식 기반)
+calculate_actual_leverage(entry_count, leverage, divided_count, total_position_value, current_equity) =>
+    if entry_count <= 0 or leverage <= 0 or divided_count <= 0
+        0.0
+    else
+        // 🆕 바이낸스 공식: 실제레버리지 = 총포지션가치 ÷ 총자산
+        // 총포지션가치 = total_position_value (실제 계산된 값)
+        // 총자산 = current_equity (initial_capital - 고정된 초기 자본)
+        // 실제레버리지 = total_position_value ÷ current_equity
+        total_position_value / current_equity
+
+// 🆕 개선된 바이낸스 청산가 계산 함수 (entryCount에 따른 동적 레버리지 적용)
+calculate_martingale_liquidation_price(avg_price, entry_count, leverage, divided_count, total_position_value, current_equity) =>
+    if entry_count <= 2
+        na  // 1-2회 진입 시에는 청산가 없음
+    else
+        // 🆕 새로운 레버리지 계산 함수 사용 (총포지션가치/총자산 방식)
+        actual_leverage = calculate_actual_leverage(entry_count, leverage, divided_count, total_position_value, current_equity)
+        
+        // 🆕 레버리지가 1.0 미만이어도 이론상 청산가 계산 (안전장치)
+        if actual_leverage < 1.0
+            // 🆕 이론상 청산가: 평균가 × (1 - 1/레버리지) - 이는 실제 청산가가 아닌 이론값
+            // 실제로는 레버리지가 낮아서 청산 위험이 낮음
+            avg_price * (1 - 1/actual_leverage)
+        else
+            // 🆕 올바른 바이낸스 청산가 공식: Entry Price - ((Entry Price / Leverage) * (1 + Maintenance Margin))
+            // Maintenance Margin = 0.5% (0.005)
+            // 이 공식이 바이낸스의 표준 청산가 계산 공식
+            maintenance_margin = 0.005
+            avg_price - ((avg_price / actual_leverage) * (1 + maintenance_margin))
+
+// 🆕 청산가까지 남은 거리 계산 (백분율)
+calculate_distance_to_liquidation() =>
+    if strategy.position_size > 0 and not na(avgPrice) and not na(liquidation_price)
+        distance_pct = ((close - liquidation_price) / close) * 100
+        distance_pct
+    else
+        na
+
+// 🆕 청산 위험도 경고 여부 확인
+is_liquidation_warning(distance_percentage) =>
+    distance_percentage <= 20  // 20% 이하일 때 경고
+
+// 바이낸스 평균가 계산 함수
+calculate_binance_avg_price(current_total_cost, current_total_quantity, new_price, new_quantity) =>
+    if current_total_quantity <= 0
+        new_price
+    else
+        new_total_cost = current_total_cost + (new_price * new_quantity)
+        new_total_quantity = current_total_quantity + new_quantity
+        new_total_cost / new_total_quantity
+
+// Entry Logic
+positionSize := math.round(capitalPerOnce / close * 1000)/ 1000
+stoploss := additionalEntryPrice - (atr_multiplier * atr)   
+
+// 일반 진입 조건 (1-10번째 진입)
+if strategy.opentrades < inputTrade and positionSize > 0 
+    // First Entry
+    if (val > 0 and entryCount == 0  and  close > open) 
+        initialEntryPrice := close
+        initialPositionSize := positionSize  // 초기 진입 시 positionSize 저장
+        
+        // 🆕 사이클 시작 시 자본 고정
+        cycle_start_capital := strategy.equity
+        
+        // 바이낸스 평균가 계산
+        total_cost := close * positionSize
+        total_quantity := positionSize
+        avgPrice := total_cost / total_quantity
+        
+        // 🆕 바이낸스 청산가 계산 (첫 진입 시) - 청산가 없음
+        total_position_value := total_quantity * avgPrice
+        liquidation_price := na
+        
+        strategy.order("longPosition", strategy.long, qty=positionSize)
+        
+        entryCount := 1
+       
+        log.info("Entry 1 at {0}, avgPrice: {1}, initialPositionSize : {2}, 청산가: 없음 (첫 진입)", close, avgPrice, initialPositionSize)
+        
+    // 일반 물타기 조건 (1-9번째 진입) - 긴급 진입 이후에는 실행하지 않음
+    if (entryCount >= 1 and entryCount < inputTrade and not emergency_entry_executed)
+        stoploss := additionalEntryPrice - (atr_multiplier * atr)
+        price_gap = avgPrice - close  // 바이낸스 평균가격 사용
+        
+        if price_gap > stoploss * entryCount and close > ema350
+            secondEntryPrice := close 
+            
+            // 바이낸스 평균가 계산 (증분 방식)
+            new_cost = close * positionSize
+            total_cost := total_cost + new_cost
+            total_quantity := total_quantity + positionSize
+            avgPrice := total_cost / total_quantity
+            
+            // 🆕 바이낸스 청산가 재계산
+            total_position_value := total_quantity * avgPrice
+            
+            strategy.order("longPosition", strategy.long, qty=positionSize)
+            
+            entryCount += 1
+            
+            // 🆕 entryCount 업데이트 후 청산가 재계산
+            liquidation_price := calculate_martingale_liquidation_price(avgPrice, entryCount, leverage, dividedLongCount, total_position_value, cycle_start_capital)
+            
+            log.info("Entry {0} at {1}, avgPrice: {2}, 청산가: {3}", entryCount, close, avgPrice, liquidation_price)
+
+// 🆕 긴급 진입 조건 (별도 블록으로 분리)
+if (entryCount == inputTrade and not emergency_entry_executed)  // 10개 포지션이 모두 진입된 상태이고 긴급 진입이 아직 실행되지 않았을 때
+    // 평균가에서 2% 이상 하락 시 현재까지 투입한 전체 포지션과 같은 수량을 추가 진입
+    drop_percentage = ((avgPrice - close) / avgPrice) * 100
+    
+    if drop_percentage >= 2
+        // 🆕 현재까지 투입한 전체 포지션과 같은 수량을 긴급 진입
+        total_position_size = total_quantity  // 현재까지 투입한 전체 포지션 크기
+        emergency_position_size = total_position_size  // 전체 포지션과 같은 수량
+        
+        // 바이낸스 평균가 계산 (증분 방식)
+        new_cost = close * emergency_position_size
+        total_cost := total_cost + new_cost
+        total_quantity := total_quantity + emergency_position_size
+        avgPrice := total_cost / total_quantity
+        
+        // 🆕 바이낸스 청산가 재계산 (긴급 진입 후)
+        total_position_value := total_quantity * avgPrice
+        liquidation_price := calculate_martingale_liquidation_price(avgPrice, entryCount, leverage, dividedLongCount, total_position_value, cycle_start_capital)
+        
+        strategy.order("longPosition", strategy.long, qty=emergency_position_size)
+        
+        entryCount += 1
+        
+        // 🆕 긴급 진입 플래그 설정
+        emergency_entry_executed := true
+        
+        log.info("🚨 긴급물타기 - Entry {0} at {1}, avgPrice: {2}, 하락률: {3}%, 진입수량: {4} (전체 포지션과 같은 수량), 청산가: {5}", entryCount, close, avgPrice, drop_percentage, emergency_position_size, liquidation_price)
+        log.info("🚨 긴급물타기 - 현재까지 투입한 총 포지션: {0}", total_position_size)
+
+// 🆕 개선된 바이낸스 청산가 모니터링
+if strategy.position_size > 0 and entryCount >= 3 and not na(liquidation_price) 
+    // 동적 레버리지 계산
+    float actual_leverage = calculate_actual_leverage(entryCount, leverage, dividedLongCount, total_position_value, cycle_start_capital)
+    
+    // 청산가 위험도 계산
+    float distance_to_liquidation = close - liquidation_price
+    float distance_percentage = (distance_to_liquidation / liquidation_price) * 100
+    
+    // 이론상 청산 하락률 계산
+    float theoretical_liquidation_drop = actual_leverage > 0 ? 100 / actual_leverage : 0
+    
+    // 현재 하락률 계산
+    float current_drop_percentage = ((avgPrice - close) / avgPrice) * 100
+    
+    // 청산 위험 경고 (청산가 대비 5% 이내)
+    if close <= liquidation_price * 1.05
+        log.info("🚨 청산 위험: 현재가={0}, 청산가={1}, 거리={2}%", close, liquidation_price, distance_percentage)
+        log.info("🚨 레버리지 정보: 진입횟수={0}, 실제레버리지={1}배, 이론상청산하락률={2}%", entryCount, actual_leverage, str.tostring(theoretical_liquidation_drop))
+        log.info("🚨 현재 하락률: {0}% (청산까지 {1}% 여유)", current_drop_percentage, str.tostring(theoretical_liquidation_drop - current_drop_percentage))
+    
+    // 실제 청산 체크 (더 안전한 조건으로 수정)
+    if close <= liquidation_price * 1.01  // 1% 여유로 청산
+        strategy.close_all("바이낸스 청산")
+        log.info("🚨 바이낸스 청산 발생: 현재가={0}, 청산가={1}", close, liquidation_price)
+        log.info("🚨 마진콜 상세: 평단가={0}, 진입횟수={1}, 실제레버리지={2}배", avgPrice, entryCount, actual_leverage)
+        log.info("🚨 손실률: {0}% (이론상 청산률: {1}%)", current_drop_percentage, str.tostring(theoretical_liquidation_drop))
+
+// Partial Exit Logic (바이낸스 방식)
+if (entryCount >= 2 and (close > avgPrice * partial_profit) and  not na(avgPrice)) 
+    qty = strategy.position_size - initialPositionSize  // 현재 포지션에서 초기 positionSize를 제외한 수량 청산
+    
+    // 바이낸스 방식: 매도 시 평균가 유지, 수량만 감소
+    removed_cost = avgPrice * qty
+    total_cost := total_cost - removed_cost
+    total_quantity := total_quantity - qty
+    
+    strategy.close("longPosition", comment="초기 투입 물량 빼고 청산", qty = qty)
+    
+    // 🆕 수정: Partial Exit 후에는 entryCount를 1로 설정하고 청산가를 na로 설정
+    entryCount := 1
+    liquidation_price := na  // Partial Exit 후에는 청산가 없음
+    cycle_start_capital := na  // 🆕 사이클 시작 자본 초기화 (Partial Exit 후)
+    
+    log.info("초기 투입 물량 빼고 청산 at {0}, avgPrice: {1}, qty : {2}, strategy.position_size : {3}, 청산가: 없음 (Partial Exit 후), entryCount: {4}", close, avgPrice, qty, strategy.position_size, entryCount)
+
+// 전체 청산
+if (entryCount == 1 and (close >= (avgPrice * profit))) 
+    qty=positionSize
+    strategy.close_all("종료")
+    log.info("exit all at {0}, avgPrice: {1}", close, avgPrice)
+    
+    // 바이낸스 방식: 모든 포지션 청산 시 변수 초기화
+    avgPrice := 0
+    total_cost := 0
+    total_quantity := 0
+    initialEntryPrice := 0
+    secondEntryPrice := 0
+    liquidation_price := na
+    total_position_value := 0.0
+    cycle_start_capital := na  // 🆕 사이클 시작 자본 초기화
+    
+    entryCount := 0
+    
+    // 🆕 자본 분할 초기화 (다음 거래를 위해)
+    first_half_capital := na
+    second_half_capital := na
+    
+    // 🆕 긴급 진입 플래그 초기화
+    emergency_entry_executed := false
+
+// 🆕 개선된 청산가 정보를 차트에 표시
+if barstate.islast and strategy.position_size > 0 and not na(avgPrice)
+    var table liquidation_table = table.new(position.top_right, 2, 8, bgcolor=color.white, border_width=1)
+    
+    current_liquidation_price = liquidation_price
+    distance_to_liquidation = calculate_distance_to_liquidation()
+    actual_leverage = calculate_actual_leverage(entryCount, leverage, dividedLongCount, total_position_value, cycle_start_capital)
+    
+    if not na(current_liquidation_price) and not na(distance_to_liquidation) and not na(actual_leverage)
+        table.cell(liquidation_table, 0, 0, "청산가 정보", text_color=color.black, bgcolor=color.red)
+        table.cell(liquidation_table, 1, 0, "값", text_color=color.black, bgcolor=color.red)
+        
+        table.cell(liquidation_table, 0, 1, "현재가", text_color=color.black)
+        table.cell(liquidation_table, 1, 1, str.tostring(close, "#.##"), text_color=color.black)
+        
+        table.cell(liquidation_table, 0, 2, "평균가", text_color=color.black)
+        table.cell(liquidation_table, 1, 2, str.tostring(avgPrice, "#.##"), text_color=color.black)
+        
+        table.cell(liquidation_table, 0, 3, "청산가", text_color=color.black)
+        table.cell(liquidation_table, 1, 3, str.tostring(current_liquidation_price, "#.##"), text_color=color.red)
+        
+        table.cell(liquidation_table, 0, 4, "청산가까지 거리", text_color=color.black)
+        // 거리에 따른 색상 설정
+        distance_color = distance_to_liquidation <= 10 ? color.red : distance_to_liquidation <= 20 ? color.orange : color.green
+        
+        table.cell(liquidation_table, 1, 4, str.tostring(distance_to_liquidation, "#.##") + "%", text_color=distance_color)
+        
+        table.cell(liquidation_table, 0, 5, "진입횟수", text_color=color.black)
+        table.cell(liquidation_table, 1, 5, str.tostring(entryCount), text_color=color.black)
+        
+        table.cell(liquidation_table, 0, 6, "실제 레버리지", text_color=color.black)
+        table.cell(liquidation_table, 1, 6, str.tostring(actual_leverage, "#.##") + "x", text_color=color.blue)
+        
+        table.cell(liquidation_table, 0, 7, "이론상 청산률", text_color=color.black)
+        theoretical_drop = actual_leverage > 0 ? 100 / actual_leverage : 0
+        table.cell(liquidation_table, 1, 7, str.tostring(theoretical_drop, "#.##") + "%", text_color=color.purple)
+
+// 🆕 청산가 라인 표시 (실시간)
+if strategy.position_size > 0 and not na(liquidation_price)
+    line.new(bar_index - 1, liquidation_price, bar_index, liquidation_price, color=color.red, width=3, style=line.style_dashed)
+
+// 🆕 평균가 라인 표시
+plot(avgPrice, color = color.blue, style = plot.style_line, linewidth=2, title="평균가")
+
+// 🆕 청산 위험 구간 표시
+bgcolor(close <= liquidation_price * 1.05 and strategy.position_size > 0 and not na(liquidation_price) ? color.new(color.red, 90) : na, title="청산 위험 구간")

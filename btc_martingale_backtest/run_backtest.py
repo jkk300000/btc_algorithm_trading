@@ -1,13 +1,13 @@
 import backtrader as bt
 import pandas as pd
-from strategy_martin_fixed import ModifiedMartingaleStrategy
-from strategy_martin import MartingaleStrategy
+from strategy.strategy_martin_fixed import ModifiedMartingaleStrategy
+from strategy.strategy_martin import MartingaleStrategy
+from strategy.strategy_new import NewModifiedMartingaleStrategy
+from strategy.strategy_martin_fixed_pine import StrategyMartinFixedPine
 
-from strategy_martin_fixed_pine import StrategyMartinFixedPine
-from feature_engineering import add_features
-from train_rf_model import train_and_predict
-from train_rf_model_down import train_and_predict_10pct_after_5pct
-from calc_var import calc_var, calc_mean_var_from_df 
+from ml_model.train_rf_model import train_and_predict
+from ml_model.train_rf_model_down import train_and_predict_10pct_after_5pct
+from indicator.calc_var import calc_var, calc_mean_var_from_df 
 import logging
 import numpy as np
 import os
@@ -34,7 +34,7 @@ class ArithmeticReturns(bt.Analyzer): # ✅ 해당 클래스는 전략(bt.strate
 
         def stop(self):
             # final_value가 설정되지 않았으면 현재 broker value를 사용
-            if self.final_value is None:
+            if self.final_value is None: 
                 self.final_value = self.strategy.broker.getvalue()
             
             # initial_cash가 설정되지 않았으면 현재 broker cash를 사용
@@ -188,6 +188,7 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     
     # 🚀 멀티 전략 실행 (3개 전략 비교)
     # cerebro.addstrategy(ModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # cerebro.addstrategy(NewModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
     cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
     # cerebro.addstrategy(AdaptiveMartingaleStrategy, mean_var=mean_var, leverage=leverage)
     # cerebro.addstrategy(StrategyMartinFixedPine, mean_var=mean_var, leverage=leverage)
