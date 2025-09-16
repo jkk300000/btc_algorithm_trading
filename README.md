@@ -249,12 +249,5 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 ---
 
-<div align="center">
 
-**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요! ⭐**
-
-Made with ❤️ by [Your Name]
-
-
-</div>
 
