@@ -209,13 +209,14 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - **이메일**: s4wlsrud@gmail.com
 
 ## 🙏사용 언어 및 툴
-- [Python] 
+- [Python](https://www.python.org/) 
 - [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
 - [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
 - [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
 - [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
 
 ---
+
 
 
 
