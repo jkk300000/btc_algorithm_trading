@@ -91,7 +91,7 @@ matplotlib >= 3.5.0
 ### 설치 및 실행
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/yourusername/btc_algorithm_trading.git
+git clone https://github.com/jkk300000/btc_algorithm_trading.git
 cd btc_algorithm_trading
 
 # 2. 의존성 설치
@@ -216,6 +216,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
 
 ---
+
 
 
 
