@@ -245,7 +245,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
 - [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
 - [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
-- [Cursor](https://cursor.com/agents) - 커서 AI
+- [Cursor](https://cursor.com/) - 커서 AI
 
 ---
 
@@ -257,3 +257,4 @@ Made with ❤️ by [Your Name]
 
 
 </div>
+
