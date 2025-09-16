@@ -8,10 +8,20 @@ strategy("btc atr 물타기 바이낸스 1분봉 ETHUSDT.P - 개선된 청산가
 import PineCoders/Time/5
 
 // Convert dates to timestamps (defined only once)
-start_time = input.time(timestamp("2025-07-09T09:36:00+09:00"), title="자동매매 시작")
+start_time = input.time(timestamp("2025-08-07T22:15:00+09:00"), title="자동매매 시작")
 end_time = input.time(timestamp("2026-12-30T11:09:00+09:00"), title="자동매매 종료")
 
-in_backtest_period = (time >= start_time) and (time <= end_time)
+// 🆕 POA 라이브러리 스타일의 in_trade 함수 (TV 백테스트 기간과 무관하게 거래 제어)
+in_trade(int start_time, int end_time, bool hide_trade_line = false) =>
+    allowedToTrade = (time >= start_time) and (time <= end_time)
+    if barstate.islastconfirmedhistory and not hide_trade_line
+        var myLine = line(na)
+        line.delete(myLine)
+        myLine := line.new(start_time, low, start_time, high, xloc=xloc.bar_time, color = color.rgb(255, 153, 0, 50), width = 3, extend = extend.both, style = line.style_dashed)
+    allowedToTrade
+
+// 🆕 거래 가능 여부 확인 (TV 백테스트 기간과 무관)
+in_backtest_period = in_trade(start_time, end_time, false)
 
 // --- 스퀴즈 모멘텀 지표 ---
 length = input(20, title="BB Length")

@@ -47,9 +47,9 @@ class MartingaleStrategy(bt.Strategy):
     
     params = dict(
         inputTrade=10,
-        profit=1.007 , 
-        profit_small=1.005,
-        profit_partial=1.0035,  # 0.4%에서 1.5%로 상향 조정
+        profit=1.011 , 
+        profit_small=1.008,
+        profit_partial=1.004,  # 0.4%에서 1.5%로 상향 조정
         leverage=0,  # 포지션 크기 계산용 10배
         dividedLongCount=20,
         additionalEntryPrice=1500,
@@ -430,7 +430,7 @@ class MartingaleStrategy(bt.Strategy):
                 return
             
             # 청산가 근처 경고 (청산가의 5% 이내)
-            risk_info = validate_liquidation_risk(close, liquidation_price, warning_threshold=0.05)
+            risk_info = validate_liquidation_risk(close, liquidation_price, warning_threshold=0.1)
             if risk_info['warning'] and self.tick_count % 100 == 0:
                 self.log(f"⚠️ 청산가 근처 - 현재가: {close:.2f}, 청산가: {liquidation_price:.2f}, 거리: {risk_info['distance_percentage']:.1f}%, 위험도: {risk_info['risk_level']}")
                 self.log(f"⚠️ 레버리지 정보 - 진입횟수: {self.entryCount}, 실제레버리지: {actual_leverage:.1f}배, 이론상청산하락률: {theoretical_liquidation_drop:.1f}%")
@@ -438,7 +438,15 @@ class MartingaleStrategy(bt.Strategy):
                 # 현재 하락률 계산
                 current_drop_percentage = ((self.binance_calculator.get_average_price() - close) / self.binance_calculator.get_average_price()) * 100
                 self.log(f"⚠️ 현재 하락률: {current_drop_percentage:.1f}% (청산까지 {theoretical_liquidation_drop - current_drop_percentage:.1f}% 여유)")
-            
+                 # 🆕 risk_info 발생 시 trade_logs CSV 파일에 저장 (개선됨)
+                self.save_trade_log('liquidation_risk_warning', 
+                                   liquidation_price=liquidation_price,
+                                   distance_percentage=risk_info['distance_percentage'],
+                                   risk_level=risk_info['risk_level'],
+                                   current_drop_percentage=current_drop_percentage,
+                                   theoretical_liquidation_drop=theoretical_liquidation_drop,
+                                   actual_leverage=actual_leverage,
+                                   warning_threshold=0.1)
             # 바이낸스 기준 마진콜 조건
             if close <= liquidation_price:
                 current_drop_percentage = ((self.binance_calculator.get_average_price() - close) / self.binance_calculator.get_average_price()) * 100

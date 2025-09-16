@@ -98,3 +98,5 @@ class ADXR(bt.Indicator):
 
 
 
+
+

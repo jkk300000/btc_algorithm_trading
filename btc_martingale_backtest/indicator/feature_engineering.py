@@ -72,7 +72,7 @@ def calculate_rma(data, period):
 def calculate_atr_pinescript(df, period=14):
     """
     Pine Script ta.atr()와 정확히 동일한 ATR 계산
-    Pine Script 문서에 따른 정확한 구현
+    트레이딩뷰 파인스크립트와 100% 일치하는 구현
     
     Args:
         df: pandas DataFrame - OHLC 데이터
@@ -82,33 +82,62 @@ def calculate_atr_pinescript(df, period=14):
         pandas Series - ATR 값
     """
     # True Range 계산 (Pine Script와 정확히 동일)
-    high = df['high'].values
-    low = df['low'].values
-    close = df['close'].values
+    high = df['high']
+    low = df['low']
+    close = df['close']
     
-    # True Range 계산
-    tr = np.zeros(len(df))
+    # 이전 종가 계산 (첫 번째 값은 NaN)
+    prev_close = close.shift(1)
     
-    for i in range(len(df)):
-        if i == 0 or pd.isna(high[i-1]):
-            # 첫 번째 값이거나 이전 high가 na인 경우
-            tr[i] = high[i] - low[i]
-        else:
-            # Pine Script: max(high - low, abs(high - close[1]), abs(low - close[1]))
-            tr[i] = max(
-                high[i] - low[i],
-                abs(high[i] - close[i-1]),
-                abs(low[i] - close[i-1])
-            )
+    # True Range의 세 가지 구성요소
+    tr1 = high - low
+    tr2 = np.abs(high - prev_close)
+    tr3 = np.abs(low - prev_close)
+    
+    # 최대값 선택
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     
     # RMA 기반 ATR (Pine Script와 정확히 동일)
-    atr = calculate_rma(pd.Series(tr, index=df.index), period)
+    atr = calculate_rma(tr, period)
     return atr
+
+
+def calculate_atr_for_backtest_period(df, backtest_start_date, period=14):
+    """
+    백테스팅 기간에 맞춰 ATR 계산
+    지정된 시작일부터의 데이터로만 ATR 계산
+    
+    Args:
+        df: pandas DataFrame - 전체 OHLC 데이터
+        backtest_start_date: str - 백테스팅 시작일 (예: '2022-09-01')
+        period: int - ATR 기간 (기본값: 14)
+    
+    Returns:
+        pandas Series - ATR 값 (전체 데이터 길이, 백테스팅 시작일 이전은 NaN)
+    """
+    # 백테스팅 시작일 이후 데이터만 추출
+    backtest_start = pd.to_datetime(backtest_start_date)
+    df_backtest = df[df.index >= backtest_start]
+    
+    if len(df_backtest) == 0:
+        logger.warning(f"⚠️ 백테스팅 시작일 {backtest_start_date} 이후 데이터가 없습니다.")
+        return pd.Series([np.nan] * len(df), index=df.index)
+    
+    # 백테스팅 기간 데이터로 ATR 계산
+    atr_backtest = calculate_atr_pinescript(df_backtest, period)
+    
+    # 전체 데이터 길이에 맞춰 결과 생성 (백테스팅 시작일 이전은 NaN)
+    atr_full = pd.Series([np.nan] * len(df), index=df.index)
+    atr_full.loc[df_backtest.index] = atr_backtest
+    
+    logger.info(f"✅ 백테스팅 기간 ATR 계산 완료: {backtest_start_date}부터 {len(df_backtest)}개 데이터")
+    
+    return atr_full
 
 
 def add_features(input_path, output_path=None, diagnose=True, use_pinescript_atr=True, 
                 use_kalman_filter=False, kalman_params=None, optimize_kalman=False, use_multi_scale=False,
-                use_gpu=False, n_jobs=1):
+                use_gpu=False, n_jobs=1, backtest_start_date=None):
     """
     ta_lib 라이브러리를 활용해 진입 조건 및 ml 가격 상승 및 하락 예측에 사용할 특정 지표를 계산.
     
@@ -148,7 +177,7 @@ def add_features(input_path, output_path=None, diagnose=True, use_pinescript_atr
     
     result = add_features_single(input_path, output_path, diagnose, use_pinescript_atr, 
                                use_kalman_filter, kalman_params, optimize_kalman, use_multi_scale,
-                               use_gpu, n_jobs)
+                               use_gpu, n_jobs, backtest_start_date)
     
     # 총 소요 시간 계산
     total_time = time.time() - start_time
@@ -161,7 +190,7 @@ def add_features(input_path, output_path=None, diagnose=True, use_pinescript_atr
 
 def add_features_single(input_path, output_path=None, diagnose=True, use_pinescript_atr=True,
                        use_kalman_filter=False, kalman_params=None, optimize_kalman=False, use_multi_scale=False,
-                       use_gpu=False, n_jobs=1):
+                       use_gpu=False, n_jobs=1, backtest_start_date=None):
     """
     일반 파일 처리 (단일 파일) - 개선된 버전
     
@@ -316,15 +345,26 @@ def add_features_single(input_path, output_path=None, diagnose=True, use_pinescr
     logger.info("📈 ATR 지표 계산 중...")
     atr_start = time.time()
     if use_pinescript_atr:
-        logger.info("🔄 Pine Script와 동일한 RMA 기반 ATR 계산...")
-        try:
-            df['atr_14'] = calculate_atr_pinescript(df, 14)
-            logger.info(f"✅ RMA 기반 ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
-        except Exception as e:
-            logger.warning(f"⚠️ RMA ATR 계산 중 오류: {e}")
-            logger.info("🔄 talib ATR로 대체...")
-            df['atr_14'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
-            logger.info(f"✅ talib ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
+        if backtest_start_date:
+            logger.info(f"🔄 백테스팅 기간 ATR 계산: {backtest_start_date}부터...")
+            try:
+                df['atr_14'] = calculate_atr_for_backtest_period(df, backtest_start_date, 14)
+                logger.info(f"✅ 백테스팅 기간 ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
+            except Exception as e:
+                logger.warning(f"⚠️ 백테스팅 기간 ATR 계산 중 오류: {e}")
+                logger.info("🔄 전체 데이터 ATR로 대체...")
+                df['atr_14'] = calculate_atr_pinescript(df, 14)
+                logger.info(f"✅ 전체 데이터 ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
+        else:
+            logger.info("🔄 Pine Script와 동일한 RMA 기반 ATR 계산...")
+            try:
+                df['atr_14'] = calculate_atr_pinescript(df, 14)
+                logger.info(f"✅ RMA 기반 ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
+            except Exception as e:
+                logger.warning(f"⚠️ RMA ATR 계산 중 오류: {e}")
+                logger.info("🔄 talib ATR로 대체...")
+                df['atr_14'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
+                logger.info(f"✅ talib ATR 계산 완료 ({time.time() - atr_start:.2f}초)")
     else:
         logger.info("🔄 talib 기반 SMA ATR 계산...")
         df['atr_14'] = talib.ATR(df['high'], df['low'], df['close'], timeperiod=14)
@@ -725,26 +765,26 @@ if __name__ == '__main__':
         print("=" * 50)
         
         # Pine Script와 동일한 ATR 사용 + 성능 최적화
-        df = add_features('C:/선물데이터/binance_btcusdt_1m.csv', 
-                         'C:/선물데이터/binance_btcusdt_1m_features.csv',
-                         use_pinescript_atr=True, 
-                         optimize_kalman=False,  # 최적화 비활성화 (중복 실행 방지) 
-                         use_kalman_filter=True, 
-                         use_multi_scale=True,   # 2단계 필터 활성화 (멀티 스케일 적용)
-                         use_gpu=True,        # GPU 가속 (CuPy 설치 시 True로 변경)
-                         n_jobs=7,             # 병렬 처리 (CPU 코어 수에 맞게 조정)
-                         kalman_params={
-                            'base_Q': 0.01,               # 균형잡힌 반응성
-                            'base_R': 1.0,                # 빠른 신호 반영
-                            'volatility_threshold': 0.05,  # 민감한 변동성 감지
-                            'preservation_factor': 0.82,   # 높은 신호 보존
-                            'volatility_window': 12,       # 빠른 적응 (12분)
-                            'adaptive_factor': 5.0
-                            })
-
         # df = add_features('C:/선물데이터/binance_btcusdt_1m.csv', 
         #                  'C:/선물데이터/binance_btcusdt_1m_features.csv',
-        #                  use_pinescript_atr=True)
+        #                  use_pinescript_atr=True, 
+        #                  optimize_kalman=False,  # 최적화 비활성화 (중복 실행 방지) 
+        #                  use_kalman_filter=False, 
+        #                  use_multi_scale=False,   # 2단계 필터 활성화 (멀티 스케일 적용)
+        #                  use_gpu=True,        # GPU 가속 (CuPy 설치 시 True로 변경)
+        #                  n_jobs=7,             # 병렬 처리 (CPU 코어 수에 맞게 조정)
+        #                  kalman_params={
+        #                     'base_Q': 0.01,               # 균형잡힌 반
+        #                     'base_R': 1.0,                # 빠른 신호 반영
+        #                     'volatility_threshold': 0.05,  # 민감한 변동성 감지
+        #                     'preservation_factor': 0.82,   # 높은 신호 보존
+        #                     'volatility_window': 12,       # 빠른 적응09-   (12분)
+        #                     'adaptive_factor': 5.0
+        #                     })
+
+        df = add_features('C:/선물데이터/binance_btcusdt_1m.csv', 
+                         'C:/선물데이터/binance_btcusdt_1m_features.csv',
+                         use_pinescript_atr=True, use_gpu=True, n_jobs=7)
                          
                                                                             
         # ATR 방식 비교 (df가 None이 아닐 때만)

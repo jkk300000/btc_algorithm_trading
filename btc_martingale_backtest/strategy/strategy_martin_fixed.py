@@ -230,7 +230,7 @@ class ModifiedMartingaleStrategy(bt.Strategy):
 
         # 🆕 동적 자본 분할 계산 (방법 1 적용)
         # 백테스터 현재 자본을 기준으로 일관성 있게 계산
-        self.initial_capital = self.broker.getvalue()  # 백테스터 현재 자본
+        initial_capital = self.broker.getvalue()  # 백테스터 현재 자본
         
         # 🆕 자본 분할 디버깅 로그 (매 틱마다)
         # if self.tick_count % 100 == 0:  # 100틱마다 출력
@@ -240,10 +240,10 @@ class ModifiedMartingaleStrategy(bt.Strategy):
         
         # 자본이 변경되었거나 초기 설정인 경우 재계산
         if (self.first_half_capital is None or 
-            abs(self.initial_capital - (self.first_half_capital + self.second_half_capital)) > 1):
+            abs(initial_capital - (self.first_half_capital + self.second_half_capital)) > 1):
             
-            self.first_half_capital = self.initial_capital / 2  # 첫 번째 절반
-            self.second_half_capital = self.initial_capital / 2  # 두 번째 절반 (긴급 진입용)
+            self.first_half_capital = initial_capital / 2  # 첫 번째 절반
+            self.second_half_capital = initial_capital / 2  # 두 번째 절반 (긴급 진입용)
             self.emergency_position_size = None  # 긴급 진입 크기 재계산 필요
             
             # self.log(f"💰 자본 분할 재설정 - 현재자본: {self.initial_capital:.2f}")

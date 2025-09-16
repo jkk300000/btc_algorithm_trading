@@ -4,6 +4,7 @@ from strategy.strategy_martin_fixed import ModifiedMartingaleStrategy
 from strategy.strategy_martin import MartingaleStrategy
 from strategy.strategy_new import NewModifiedMartingaleStrategy
 from strategy.strategy_martin_fixed_pine import StrategyMartinFixedPine
+from strategy.strategy_pine_script_converted import PineScriptConvertedStrategy
 
 from ml_model.train_rf_model import train_and_predict
 from ml_model.train_rf_model_down import train_and_predict_10pct_after_5pct
@@ -149,7 +150,7 @@ class CustomDrawDownAnalyzer(bt.Analyzer):
             'max_drawdown_pct': self.max_drawdown_pct
         }
 
-def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=8):
+def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leverage=6):
     print("="*50)
     print(f"Backtest Start: {start_date}")
     print(f"Initial Cash: {cash}, Commission: {commission}, Leverage: {leverage}")
@@ -170,12 +171,16 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     df = df[df.index >= start_ts]
     df = df.dropna(subset=['rf_pred'])
     
+    # Pine Script 전략을 위한 추가 컬럼 생성
+    if 'volume' not in df.columns:
+        df['volume'] = 1000  # 기본 볼륨 값 설정
+    
     print(f"Mean VaR (start_date={start_date}): {mean_var:.6f}")
     
     # 데이터 확장
     class PandasDataExt(bt.feeds.PandasData):
-        lines = ('rf_pred', 'rf_pred_down', 'var', 'var_dollar', 'val', 'atr_14')
-        params = (('rf_pred', -1), ('rf_pred_down', -1), ('var', -1), ('var_dollar', -1), ('val', -1), ('atr_14', -1))
+        lines = ('rf_pred', 'rf_pred_down', 'var', 'var_dollar', 'val', 'atr_14', 'volume')
+        params = (('rf_pred', -1), ('rf_pred_down', -1), ('var', -1), ('var_dollar', -1), ('val', -1), ('atr_14', -1), ('volume', -1))
     
 
     # 먼저 기본 데이터 생성
@@ -189,9 +194,10 @@ def run_backtest(df, start_date='2022-09-01', cash=1000, commission=0.0005, leve
     # 🚀 멀티 전략 실행 (3개 전략 비교)
     # cerebro.addstrategy(ModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
     # cerebro.addstrategy(NewModifiedMartingaleStrategy, mean_var=mean_var, leverage=leverage)
-    cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
+    # cerebro.addstrategy(MartingaleStrategy, mean_var=mean_var, leverage=leverage)
     # cerebro.addstrategy(AdaptiveMartingaleStrategy, mean_var=mean_var, leverage=leverage)
     # cerebro.addstrategy(StrategyMartinFixedPine, mean_var=mean_var, leverage=leverage)
+    cerebro.addstrategy(PineScriptConvertedStrategy, leverage=leverage)
     cerebro.adddata(data) 
     cerebro.broker.setcash(cash)
     cerebro.broker.setcommission(commission=commission, leverage=leverage, margin=0)
