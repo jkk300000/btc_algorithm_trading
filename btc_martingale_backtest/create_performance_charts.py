@@ -6,7 +6,34 @@ from datetime import datetime
 import os
 
 # 한글 폰트 설정
-plt.rcParams['font.family'] = 'DejaVu Sans'
+import matplotlib.font_manager as fm
+
+# Windows에서 사용 가능한 한글 폰트 찾기
+def find_korean_font():
+    font_list = fm.findSystemFonts(fontpaths=None, fontext='ttf')
+    korean_fonts = []
+    
+    for font_path in font_list:
+        try:
+            font_prop = fm.FontProperties(fname=font_path)
+            font_name = font_prop.get_name()
+            # 한글을 지원하는 폰트 찾기
+            if any(keyword in font_name.lower() for keyword in ['malgun', 'gulim', 'dotum', 'batang', 'gungsuh', 'nanum', 'noto']):
+                korean_fonts.append(font_name)
+        except:
+            continue
+    
+    return korean_fonts[0] if korean_fonts else 'DejaVu Sans'
+
+# 한글 폰트 설정
+try:
+    korean_font = find_korean_font()
+    plt.rcParams['font.family'] = korean_font
+    print(f"한글 폰트 설정: {korean_font}")
+except:
+    plt.rcParams['font.family'] = 'DejaVu Sans'
+    print("한글 폰트를 찾을 수 없어 기본 폰트를 사용합니다.")
+
 plt.rcParams['axes.unicode_minus'] = False
 
 def create_performance_charts():
@@ -60,9 +87,9 @@ def create_performance_charts():
     # 차트 1: 수익률 비교
     colors = ['#2E8B57', '#4ECDC4', '#45B7D1']
     bars = ax1.bar(range(len(df)), df['arithmetic_return_pct'], color=colors, alpha=0.8, edgecolor='black', linewidth=1)
-    ax1.set_title('Backtest Returns Comparison', fontsize=16, fontweight='bold', pad=20)
-    ax1.set_xlabel('Backtest Run', fontsize=12)
-    ax1.set_ylabel('Return (%)', fontsize=12)
+    ax1.set_title('백테스트 수익률 비교', fontsize=16, fontweight='bold', pad=20)
+    ax1.set_xlabel('백테스트 실행', fontsize=12)
+    ax1.set_ylabel('수익률 (%)', fontsize=12)
     ax1.set_xticks(range(len(df)))
     ax1.set_xticklabels([f'Run {i+1}\n(Leverage {lev}x)' for i, lev in enumerate(df['leverage'])])
     ax1.grid(True, alpha=0.3)
@@ -76,9 +103,9 @@ def create_performance_charts():
     # 차트 2: 샤프 비율 vs 수익률
     scatter = ax2.scatter(df['sharpe_ratio'], df['arithmetic_return_pct'], 
                          c=df['arithmetic_return_pct'], cmap='RdYlGn', s=200, alpha=0.8, edgecolors='black')
-    ax2.set_title('📊 Sharpe Ratio vs Returns', fontsize=16, fontweight='bold', pad=20)
-    ax2.set_xlabel('Sharpe Ratio', fontsize=12)
-    ax2.set_ylabel('Return (%)', fontsize=12)
+    ax2.set_title('샤프 비율 vs 수익률 비교', fontsize=16, fontweight='bold', pad=20)
+    ax2.set_xlabel('샤프 비율', fontsize=12)
+    ax2.set_ylabel('수익률 (%)', fontsize=12)
     ax2.grid(True, alpha=0.3)
     
     # 각 점에 레버리지 표시
@@ -89,9 +116,9 @@ def create_performance_charts():
     # 차트 3: 리스크-수익 매트릭스
     risk_return = ax3.scatter(df['max_drawdown_pct'], df['arithmetic_return_pct'], 
                              c=df['sharpe_ratio'], s=200, cmap='viridis', alpha=0.8, edgecolors='black')
-    ax3.set_title('⚖️ Risk-Return Matrix', fontsize=16, fontweight='bold', pad=20)
-    ax3.set_xlabel('Max Drawdown (%)', fontsize=12)
-    ax3.set_ylabel('Return (%)', fontsize=12)
+    ax3.set_title('리스크-수익 매트릭스', fontsize=16, fontweight='bold', pad=20)
+    ax3.set_xlabel('MDD (%)', fontsize=12)
+    ax3.set_ylabel('수익률 (%)', fontsize=12)
     ax3.grid(True, alpha=0.3)
     
     # 각 점에 레버리지 표시
@@ -101,9 +128,9 @@ def create_performance_charts():
     
     # 차트 4: 레버리지별 성과
     ax4.bar(df['leverage'], df['arithmetic_return_pct'], color=colors, alpha=0.8, edgecolor='black', linewidth=1)
-    ax4.set_title('🎯 Performance by Leverage', fontsize=16, fontweight='bold', pad=20)
-    ax4.set_xlabel('Leverage', fontsize=12)
-    ax4.set_ylabel('Return (%)', fontsize=12)
+    ax4.set_title('레버리지별 성과', fontsize=16, fontweight='bold', pad=20)
+    ax4.set_xlabel('레버리지', fontsize=12)
+    ax4.set_ylabel('수익률 (%)', fontsize=12)
     ax4.grid(True, alpha=0.3)
     
     # 수익률 값 표시
@@ -131,19 +158,19 @@ def create_performance_charts():
     avg_var = df['avg_var_dollar'].mean()
     
     summary_text = f"""
-    📊 PORTFOLIO PERFORMANCE SUMMARY
+    PORTFOLIO PERFORMANCE SUMMARY
     
-    💰 Best Return: {best_return:.1f}%
-    📈 Average Return: {avg_return:.1f}%
-    ⚡ Average Sharpe: {avg_sharpe:.3f}
-    📉 Average Drawdown: {avg_drawdown:.1f}%
-    🎯 Total Trades: {total_trades:,}
-    💸 Avg Commission: {avg_commission:.1f}%
-    📊 Average VaR: ${avg_var:.0f}
+    Best Return: {best_return:.1f}%
+    Average Return: {avg_return:.1f}%
+    Average Sharpe: {avg_sharpe:.3f}
+    Average Drawdown: {avg_drawdown:.1f}%
+    Total Trades: {total_trades:,}
+    Avg Commission: {avg_commission:.1f}%
+    Average VaR: ${avg_var:.0f}
     
-    🏆 Total Backtests: {len(df)}
-    ✅ All Profitable: {len(df)}/{len(df)}
-    🚨 Margin Calls: 0
+    Total Backtests: {len(df)}
+    All Profitable: {len(df)}/{len(df)}
+    Margin Calls: 0
     """
     
     ax1.text(0.1, 0.9, summary_text, transform=ax1.transAxes, fontsize=14,
