@@ -205,7 +205,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 ## 📞 연락처
 
-- **프로젝트 링크**: [https://github.com/jkk300000/btc_martingale_backtest](https://github.com/jkk300000/btc_martingale_backtest)
+- **프로젝트 링크**: [https://github.com/jkk300000/btc_algorithm_trading](https://github.com/jkk300000/btc_algorithm_trading)
 - **이메일**: s4wlsrud@gmail.com
 
 ## 🙏사용 언어 및 툴
@@ -216,6 +216,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
 
 ---
+
 
 
 
