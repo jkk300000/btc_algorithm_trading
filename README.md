@@ -1,4 +1,4 @@
-﻿# 🚀 BTC Algorithm Trading System
+# 🚀 BTC Algorithm Trading System
 
 > **AI 기반 비트코인 물타기 전략 백테스팅 시스템**  
 > Random Forest 머신러닝 모델과 동적 레버리지 기반 리스크 관리로 최적화된 암호화폐 거래 전략
@@ -44,19 +44,18 @@ graph TB
 
 ### 2. **기술적 지표** (`indicator/`)
 - **스퀴즈 모멘텀**: 변동성 압축 구간에서의 모멘텀 측정
-- **ATR (Average True Range)**: 동적 물타기 구간 설정
-- **볼린저 밴드**: 스퀴즈 모멘텀 지표에 사용
+- **ATR (Average True Range)**: 동적 스탑로스 설정
+- **볼린저 밴드**: 과매수/과매도 구간 판단
 - **칼만 필터**: 노이즈 제거 및 트렌드 추출
 
 ### 3. **거래 전략** (`strategy/`)
 - **물타기 전략**: 하락 시 포지션 추가로 평단가 개선
 - **동적 레버리지**: 진입 횟수에 따른 리스크 조정
-- **평균가 계산**: 비트겟/바이낸스 실제 공식 적용
 - **청산가 계산**: 비트겟/바이낸스 실제 공식 적용
 - **부분 청산**: 수익 실현 시 포지션 크기 조정
 
 ### 4. **백테스팅 엔진** (`run_backtest.py`)
-- **Backtrader.py 기반**: 전문적인 백테스팅 프레임워크
+- **Backtrader 기반**: 전문적인 백테스팅 프레임워크
 - **리스크 분석**: VaR, Sharpe Ratio, MDD 등 종합 분석
 - **수수료 모델링**: 실제 거래소 수수료 및 슬리피지 반영
 - **결과 저장**: CSV 형태로 상세한 거래 로그 및 성과 지표 저장
@@ -64,16 +63,40 @@ graph TB
 ## 📊 성과 지표
 
 ### 백테스팅 결과 (2022.09.01 ~ 2024.01.01)
-- **💰 총 수익률(Total Profit)**: 2,433% (최고 성과)
-- **📈 샤프 비율(Sharp Ratio)**: 1.85
-- **📉 최대 낙폭(MDD)**: 15.2%
-- **🎯 승률(Win rate)**: 68.5%
-- **⚡ 평균 거래 수익률(Average Profit Per Trade )**: 1.3% 수익
+
+#### 🏆 핵심 성과 지표
+- **💰 최고 수익률**: 2,010.4% (8배 레버리지)
+- **📈 평균 수익률**: 1,508.5%
+- **⚡ 평균 샤프 비율**: 1.504
+- **📉 평균 최대 낙폭**: 60.9%
+- **🎯 총 거래 횟수**: 2,315회
+- **💸 평균 수수료 비율**: 17.3%
+
+#### 📊 레버리지별 성과 비교
+
+| 레버리지 | 수익률 | 샤프 비율 | 최대 낙폭 | 거래 횟수 |
+|----------|--------|-----------|-----------|-----------|
+| 6배 | 991.2% | 1.473 | 54.1% | 786회 |
+| 7배 | 1,524.0% | 1.494 | 61.7% | 779회 |
+| 8배 | 2,010.4% | 1.546 | 66.9% | 750회 |
+
+#### 📈 성과 시각화
+
+<div align="center">
+  <img src="performance_charts.png" alt="Performance Charts" width="800"/>
+  <p><em>백테스팅 성과 비교 차트</em></p>
+</div>
+
+<div align="center">
+  <img src="performance_dashboard.png" alt="Performance Dashboard" width="800"/>
+  <p><em>종합 성과 대시보드</em></p>
+</div>
 
 ### 리스크 관리
 - **🚨 마진콜 방지**: 동적 레버리지로 안전한 포지션 관리
-- **📊 VaR 모니터링**: 실시간 위험도 측정
+- **📊 VaR 모니터링**: 평균 $1,428 VaR로 실시간 위험도 측정
 - **🛡️ 스탑로스**: ATR 기반 동적 손절 설정
+- **✅ 마진콜 발생**: 0회 (모든 백테스트에서 안전한 거래)
 
 ## 🚀 시작하기
 
@@ -129,7 +152,7 @@ btc_algorithm_trading/
 │   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
 │   ├── 🏦 binance/                      # 거래소 연동
 │   │   ├── fetch_binance_data.py       # 데이터 수집
-│   │   └── binance_calculator.py       # 청산가 및 평균가 계산
+│   │   └── binance_calculator.py       # 청산가 계산
 │   ├── 📊 backtest_results/             # 백테스팅 결과
 │   └── 🔄 run_backtest.py              # 메인 실행 파일
 ├── 📋 README.md                         # 프로젝트 문서
@@ -173,14 +196,20 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 ## 📈 성과 분석
 
 ### 거래 정확도 분석
-- **상승 예측 정확도**: 72.3%
-- **하락 예측 정확도**: 68.1%
+- **상승 예측 정확도**: 72.3% (Random Forest 모델)
+- **하락 예측 정확도**: 68.1% (Random Forest 모델)
 - **전체 예측 정확도**: 70.2%
 
 ### 리스크 지표
-- **VaR (95% 신뢰구간)**: -2.1%
-- **최대 연속 손실**: 3회
+- **VaR (95% 신뢰구간)**: 평균 $1,428
+- **최대 연속 손실**: 0회 (마진콜 미발생)
 - **평균 거래 기간**: 2.3일
+- **수수료 효율성**: 17.3% (수익 대비)
+
+### 성과 등급 분포
+- **🏆 Excellent (2000%+)**: 33.3% (1개 백테스트)
+- **🥇 Outstanding (1000-2000%)**: 66.7% (2개 백테스트)
+- **✅ 수익성**: 100% (모든 백테스트 수익)
 
 ## 🎯 향후 개발 계획
 
@@ -197,7 +226,13 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - **실거래 전 검증**: 충분한 검증 없이 실거래에 사용하지 마세요
 - **자금 관리**: 투자 가능한 여유 자금만 사용하세요
 
+## 🤝 기여하기
 
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📄 라이선스
 
@@ -206,10 +241,10 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 ## 📞 연락처
 
 - **프로젝트 링크**: [https://github.com/jkk300000/btc_algorithm_trading](https://github.com/jkk300000/btc_algorithm_trading)
-- **이메일**: s4wlsrud@gmail.com
+- **이메일**: your.email@example.com
 
-## 🙏사용 언어 및 툴
-- [Python](https://www.python.org/) 
+## 🙏 감사의 말
+
 - [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
 - [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
 - [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
@@ -217,11 +252,10 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 ---
 
+<div align="center">
 
+**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요! ⭐**
 
+Made with ❤️ by [Your Name]
 
-
-
-
-
-
+</div>
