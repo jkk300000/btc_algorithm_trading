@@ -113,19 +113,16 @@ matplotlib >= 3.5.0
 git clone https://github.com/jkk300000/btc_algorithm_trading.git
 cd btc_algorithm_trading
 
-# 2. 의존성 설치
-pip install -r requirements.txt
-
-# 3. 데이터 준비 (Binance API 또는 CSV 파일)
+# 2. 데이터 준비 (Binance API 또는 CSV 파일)
 python btc_martingale_backtest/binance/fetch_binance_data.py
 
-# 4. 피처 엔지니어링
+# 3. 피처 엔지니어링
 python btc_martingale_backtest/indicator/feature_engineering.py
 
-# 5. 머신러닝 모델 훈련
+# 4. 머신러닝 모델 훈련
 python btc_martingale_backtest/ml_model/rf_1pct_after_0_4pct.py
 
-# 6. 백테스팅 실행
+# 5. 백테스팅 실행
 python btc_martingale_backtest/run_backtest.py
 ```
 
@@ -152,7 +149,7 @@ btc_algorithm_trading/
 │   ├── 📊 backtest_results/             # 백테스팅 결과
 │   └── 🔄 run_backtest.py              # 메인 실행 파일
 ├── 📋 README.md                         # 프로젝트 문서
-└── 📝 requirements.txt                  # 의존성 목록
+
 ```
 
 ## 🔧 핵심 기능
@@ -238,6 +235,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - [Cursor](https://cursor.com/) - 커서 AI
 
 ---
+
 
 
 
