@@ -222,17 +222,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - **실거래 전 검증**: 충분한 검증 없이 실거래에 사용하지 마세요
 - **자금 관리**: 투자 가능한 여유 자금만 사용하세요
 
-## 🤝 기여하기
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
 
 ## 📞 연락처
 
@@ -248,6 +238,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - [Cursor](https://cursor.com/) - 커서 AI
 
 ---
+
 
 
 
