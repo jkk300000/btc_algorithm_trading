@@ -87,9 +87,9 @@ def create_performance_charts():
     # 차트 1: 수익률 비교
     colors = ['#2E8B57', '#4ECDC4', '#45B7D1']
     bars = ax1.bar(range(len(df)), df['arithmetic_return_pct'], color=colors, alpha=0.8, edgecolor='black', linewidth=1)
-    ax1.set_title('백테스트 수익률 비교', fontsize=16, fontweight='bold', pad=20)
-    ax1.set_xlabel('백테스트 실행', fontsize=12)
-    ax1.set_ylabel('수익률 (%)', fontsize=12)
+    ax1.set_title('백테스트 수익률 비교', fontsize=18, fontweight='bold', pad=20)
+    ax1.set_xlabel('백테스트 실행', fontsize=13, fontweight='normal')
+    ax1.set_ylabel('수익률 (%)', fontsize=13, fontweight='normal')
     ax1.set_xticks(range(len(df)))
     ax1.set_xticklabels([f'Run {i+1}\n(Leverage {lev}x)' for i, lev in enumerate(df['leverage'])])
     ax1.grid(True, alpha=0.3)
@@ -103,9 +103,9 @@ def create_performance_charts():
     # 차트 2: 샤프 비율 vs 수익률
     scatter = ax2.scatter(df['sharpe_ratio'], df['arithmetic_return_pct'], 
                          c=df['arithmetic_return_pct'], cmap='RdYlGn', s=200, alpha=0.8, edgecolors='black')
-    ax2.set_title('샤프 비율 vs 수익률 비교', fontsize=16, fontweight='bold', pad=20)
-    ax2.set_xlabel('샤프 비율', fontsize=12)
-    ax2.set_ylabel('수익률 (%)', fontsize=12)
+    ax2.set_title('샤프 비율 vs 수익률 비교', fontsize=18, fontweight='bold', pad=20)
+    ax2.set_xlabel('샤프 비율', fontsize=13, fontweight='normal')
+    ax2.set_ylabel('수익률 (%)', fontsize=13, fontweight='normal')
     ax2.grid(True, alpha=0.3)
     
     # 각 점에 레버리지 표시
@@ -116,9 +116,9 @@ def create_performance_charts():
     # 차트 3: 리스크-수익 매트릭스
     risk_return = ax3.scatter(df['max_drawdown_pct'], df['arithmetic_return_pct'], 
                              c=df['sharpe_ratio'], s=200, cmap='viridis', alpha=0.8, edgecolors='black')
-    ax3.set_title('리스크-수익 매트릭스', fontsize=16, fontweight='bold', pad=20)
-    ax3.set_xlabel('MDD (%)', fontsize=12)
-    ax3.set_ylabel('수익률 (%)', fontsize=12)
+    ax3.set_title('리스크-수익 매트릭스', fontsize=18, fontweight='bold', pad=20)
+    ax3.set_xlabel('MDD (%)', fontsize=13, fontweight='normal')
+    ax3.set_ylabel('수익률 (%)', fontsize=13, fontweight='normal')
     ax3.grid(True, alpha=0.3)
     
     # 각 점에 레버리지 표시
@@ -128,9 +128,9 @@ def create_performance_charts():
     
     # 차트 4: 레버리지별 성과
     ax4.bar(df['leverage'], df['arithmetic_return_pct'], color=colors, alpha=0.8, edgecolor='black', linewidth=1)
-    ax4.set_title('레버리지별 성과', fontsize=16, fontweight='bold', pad=20)
-    ax4.set_xlabel('레버리지', fontsize=12)
-    ax4.set_ylabel('수익률 (%)', fontsize=12)
+    ax4.set_title('레버리지별 성과', fontsize=18, fontweight='bold', pad=20)
+    ax4.set_xlabel('레버리지', fontsize=13, fontweight='normal')
+    ax4.set_ylabel('수익률 (%)', fontsize=13, fontweight='normal')
     ax4.grid(True, alpha=0.3)
     
     # 수익률 값 표시
@@ -138,7 +138,7 @@ def create_performance_charts():
         ax4.text(lev, ret + max(df['arithmetic_return_pct'])*0.02,
                 f'{ret:.1f}%', ha='center', va='bottom', fontweight='bold', fontsize=11)
     
-    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.4)  # 상하 간격을 늘림 (기본값 0.2에서 0.4로)
     plt.savefig('performance_charts.png', dpi=300, bbox_inches='tight', facecolor='white')
     print("성과 차트가 저장되었습니다: performance_charts.png")
     
@@ -184,14 +184,14 @@ def create_performance_charts():
                                       labels=['Commission', 'Net Profit'], 
                                       colors=['#FF6B6B', '#4ECDC4'], 
                                       autopct='%1.1f%%', startangle=90, textprops={'fontsize': 12})
-    ax2.set_title('💸 Commission vs Net Profit Ratio', fontsize=16, fontweight='bold', pad=20)
+    ax2.set_title('💸 Commission vs Net Profit Ratio', fontsize=18, fontweight='bold', pad=20)
     
     # 대시보드 3: VaR 분석
     var_values = df['avg_var_dollar'].values
     bars = ax3.bar(range(len(var_values)), var_values, color='orange', alpha=0.8, edgecolor='black')
-    ax3.set_title('📊 Value at Risk (VaR) Analysis', fontsize=16, fontweight='bold', pad=20)
-    ax3.set_xlabel('Backtest Run', fontsize=12)
-    ax3.set_ylabel('VaR ($)', fontsize=12)
+    ax3.set_title('📊 Value at Risk (VaR) Analysis', fontsize=18, fontweight='bold', pad=20)
+    ax3.set_xlabel('Backtest Run', fontsize=13, fontweight='normal')
+    ax3.set_ylabel('VaR ($)', fontsize=13, fontweight='normal')
     ax3.set_xticks(range(len(var_values)))
     ax3.set_xticklabels([f'Run {i+1}' for i in range(len(var_values))])
     ax3.grid(True, alpha=0.3)
@@ -220,9 +220,9 @@ def create_performance_charts():
     wedges, texts, autotexts = ax4.pie(grade_counts.values, labels=grade_counts.index, 
                                        colors=colors_pie[:len(grade_counts)], autopct='%1.1f%%', 
                                        startangle=90, textprops={'fontsize': 10})
-    ax4.set_title('🏆 Performance Grade Distribution', fontsize=16, fontweight='bold', pad=20)
+    ax4.set_title('🏆 Performance Grade Distribution', fontsize=18, fontweight='bold', pad=20)
     
-    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.4)  # 상하 간격을 늘림 (기본값 0.2에서 0.4로)
     plt.savefig('performance_dashboard.png', dpi=300, bbox_inches='tight', facecolor='white')
     print("성과 대시보드가 저장되었습니다: performance_dashboard.png")
     
@@ -232,9 +232,9 @@ def create_performance_charts():
     # 거래 횟수 분석
     trades = df['total_trades'].values
     bars = ax1.bar(range(len(trades)), trades, color=colors, alpha=0.8, edgecolor='black')
-    ax1.set_title('📈 Trading Frequency Analysis', fontsize=16, fontweight='bold', pad=20)
-    ax1.set_xlabel('Backtest Run', fontsize=12)
-    ax1.set_ylabel('Total Trades', fontsize=12)
+    ax1.set_title('📈 Trading Frequency Analysis', fontsize=18, fontweight='bold', pad=20)
+    ax1.set_xlabel('Backtest Run', fontsize=13, fontweight='normal')
+    ax1.set_ylabel('Total Trades', fontsize=13, fontweight='normal')
     ax1.set_xticks(range(len(trades)))
     ax1.set_xticklabels([f'Run {i+1}\n(Leverage {lev}x)' for i, lev in enumerate(df['leverage'])])
     ax1.grid(True, alpha=0.3)
@@ -249,8 +249,8 @@ def create_performance_charts():
     ax2.plot(df['leverage'], df['sharpe_ratio'], marker='o', linewidth=3, markersize=10, 
              color='#2E8B57', markerfacecolor='white', markeredgewidth=2, markeredgecolor='#2E8B57')
     ax2.set_title('⚡ Sharpe Ratio by Leverage', fontsize=16, fontweight='bold', pad=20)
-    ax2.set_xlabel('Leverage', fontsize=12)
-    ax2.set_ylabel('Sharpe Ratio', fontsize=12)
+    ax2.set_xlabel('Leverage', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Sharpe Ratio', fontsize=14, fontweight='bold')
     ax2.grid(True, alpha=0.3)
     
     # 샤프 비율 값 표시
