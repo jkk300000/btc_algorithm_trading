@@ -1,4 +1,4 @@
-﻿# 🚀 BTC Algorithm Trading System
+# 🚀 BTC Algorithm Trading System
 
 > **AI 기반 비트코인 물타기 전략 백테스팅 시스템**  
 > Random Forest 머신러닝 모델과 동적 레버리지 기반 리스크 관리로 최적화된 암호화폐 거래 전략
@@ -7,6 +7,21 @@
 [![Backtrader](https://img.shields.io/badge/Backtrader-1.9.78.123-green.svg)](https://backtrader.com)
 [![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.0+-orange.svg)](https://scikit-learn.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## 📋 목차
+
+- [프로젝트 개요](#-프로젝트-개요)
+- [시스템 아키텍처](#️-시스템-아키텍처)
+- [기술 스택](#️-기술-스택)
+- [주요 구성 요소](#-주요-구성-요소)
+- [성과 지표](#-성과-지표)
+- [시작하기](#-시작하기)
+- [프로젝트 구조](#-프로젝트-구조)
+- [핵심 기능](#-핵심-기능)
+- [성과 분석](#-성과-분석)
+- [향후 개발 계획](#-향후-개발-계획)
+- [주의사항](#-주의사항)
+- [연락처](#-연락처)
 
 ## 📋 프로젝트 개요
 
@@ -239,6 +254,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 
 ---
+
 
 
 
