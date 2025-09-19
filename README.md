@@ -36,8 +36,16 @@ graph TB
     J --> K[백테스팅 결과 분석]
     K --> L[성과 리포트 생성]
 ```
+## 🛠️ 기술 스택
+- [Python](https://www.python.org/) - 파이썬
+- [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
+- [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
+- [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
+- [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
+- [Cursor](https://cursor.com/) - 커서 AI
 
-## 🛠️ 주요 구성 요소
+- 
+## 📁 주요 구성 요소
 
 ### 1. **머신러닝 모델** (`ml_model/`)
 - **Random Forest 분류기**: 0.4% 상승 후 1% 상승 확률 예측
@@ -228,15 +236,10 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 - **프로젝트 링크**: [https://github.com/jkk300000/btc_algorithm_trading](https://github.com/jkk300000/btc_algorithm_trading)
 - **이메일**: s4wlsrud.email@example.com
 
-## 🙏 사용 언어 및 라이브러리, 툴
-- [Python](https://www.python.org/) - 파이썬
-- [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
-- [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
-- [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
-- [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
-- [Cursor](https://cursor.com/) - 커서 AI
+
 
 ---
+
 
 
 
