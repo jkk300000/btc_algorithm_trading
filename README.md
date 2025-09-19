@@ -44,7 +44,7 @@ graph TB
 - [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
 - [Cursor](https://cursor.com/) - 커서 AI
 
-- 
+
 ## 📁 주요 구성 요소
 
 ### 1. **머신러닝 모델** (`ml_model/`)
@@ -239,6 +239,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 
 ---
+
 
 
 
