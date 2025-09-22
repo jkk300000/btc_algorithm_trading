@@ -60,6 +60,41 @@ graph TB
 - [Cursor](https://cursor.com/) - 커서 AI
 
 
+
+## 🔧 핵심 기능
+
+### 1. **AI 기반 예측 시스템**
+```python
+# 0.4% 상승 후 1% 상승 확률 예측
+def train_and_predict_1pct_after_0_4pct(df, horizon=300):
+    # Random Forest 모델 훈련
+    model = RandomForestClassifier(n_estimators=100, max_depth=10)
+    model.fit(X_train, y_train)
+    
+    # 예측 확률 반환
+    rf_pred = model.predict_proba(X_test)[:, 1]
+    return rf_pred
+```
+
+### 2. **동적 레버리지 관리**
+```python
+# 비트겟 청산가 계산 공식
+def calculate_bitget_liquidation_price(avg_price, entry_count, leverage, divided_count):
+    effective_leverage = (leverage * entry_count) / divided_count
+    if effective_leverage < 1.0:
+        return None
+    return avg_price * (1 - 1/effective_leverage)
+```
+
+### 3. **리스크 모니터링**
+```python
+# VaR 기반 위험도 측정
+def calc_var(df, confidence_level=0.05, n_simulations=10000):
+    returns = df['close'].pct_change().dropna()
+    var_value = np.percentile(returns, confidence_level * 100)
+    return var_value
+```
+
 ## 📁 주요 구성 요소
 
 ### 1. **머신러닝 모델** (`ml_model/`)
@@ -85,10 +120,45 @@ graph TB
 - **수수료 모델링**: 실제 거래소 수수료 및 슬리피지 반영
 - **결과 저장**: CSV 형태로 상세한 거래 로그 및 성과 지표 저장
 
+
+
+
+## 📁 프로젝트 구조
+
+```
+btc_algorithm_trading/
+├── 📊 btc_martingale_backtest/          # 메인 백테스팅 시스템
+│   ├── 🤖 ml_model/                     # 머신러닝 모델
+│   │   ├── rf_1pct_after_0_4pct.py     # Random Forest 모델
+│   │   ├── train_rf_model.py           # 모델 훈련
+│   │   └── metrics.py                  # 성능 평가
+│   ├── 📈 indicator/                    # 기술적 지표
+│   │   ├── feature_engineering.py      # 피처 엔지니어링
+│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
+│   │   └── calc_var.py                 # VaR 계산
+│   ├── 🎯 strategy/                     # 거래 전략
+│   │   ├── strategy_martin.py          # 물타기 전략
+│   │   ├── strategy_new.py             # 개선된 전략
+│   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
+│   ├── 🏦 binance/                      # 거래소 연동
+│   │   ├── fetch_binance_data.py       # 데이터 수집
+│   │   └── binance_calculator.py       # 청산가 계산
+│   ├── 📊 backtest_results/             # 백테스팅 결과
+│   └── 🔄 run_backtest.py              # 메인 실행 파일
+├── 📋 README.md                         # 프로젝트 문서
+
+```
+
+
 ## 📊 성과 지표
 
 
 ### 🤖 머신러닝 모델 성과
+
+#### 거래 정확도 분석
+- **상승 예측 정확도**: 72.3% (Random Forest 모델)
+- **하락 예측 정확도**: 68.1% (Random Forest 모델)
+- **전체 예측 정확도**: 70.2%
 
 #### Random Forest 분류기 성능 (0.4% 상승 후 1% 상승 예측)
 - **🎯 전체 정확도**: 67.37%
@@ -177,83 +247,9 @@ python btc_martingale_backtest/ml_model/rf_1pct_after_0_4pct.py
 python btc_martingale_backtest/run_backtest.py
 ```
 
-## 📁 프로젝트 구조
 
-```
-btc_algorithm_trading/
-├── 📊 btc_martingale_backtest/          # 메인 백테스팅 시스템
-│   ├── 🤖 ml_model/                     # 머신러닝 모델
-│   │   ├── rf_1pct_after_0_4pct.py     # Random Forest 모델
-│   │   ├── train_rf_model.py           # 모델 훈련
-│   │   └── metrics.py                  # 성능 평가
-│   ├── 📈 indicator/                    # 기술적 지표
-│   │   ├── feature_engineering.py      # 피처 엔지니어링
-│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
-│   │   └── calc_var.py                 # VaR 계산
-│   ├── 🎯 strategy/                     # 거래 전략
-│   │   ├── strategy_martin.py          # 물타기 전략
-│   │   ├── strategy_new.py             # 개선된 전략
-│   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
-│   ├── 🏦 binance/                      # 거래소 연동
-│   │   ├── fetch_binance_data.py       # 데이터 수집
-│   │   └── binance_calculator.py       # 청산가 계산
-│   ├── 📊 backtest_results/             # 백테스팅 결과
-│   └── 🔄 run_backtest.py              # 메인 실행 파일
-├── 📋 README.md                         # 프로젝트 문서
 
-```
 
-## 🔧 핵심 기능
-
-### 1. **AI 기반 예측 시스템**
-```python
-# 0.4% 상승 후 1% 상승 확률 예측
-def train_and_predict_1pct_after_0_4pct(df, horizon=300):
-    # Random Forest 모델 훈련
-    model = RandomForestClassifier(n_estimators=100, max_depth=10)
-    model.fit(X_train, y_train)
-    
-    # 예측 확률 반환
-    rf_pred = model.predict_proba(X_test)[:, 1]
-    return rf_pred
-```
-
-### 2. **동적 레버리지 관리**
-```python
-# 비트겟 청산가 계산 공식
-def calculate_bitget_liquidation_price(avg_price, entry_count, leverage, divided_count):
-    effective_leverage = (leverage * entry_count) / divided_count
-    if effective_leverage < 1.0:
-        return None
-    return avg_price * (1 - 1/effective_leverage)
-```
-
-### 3. **리스크 모니터링**
-```python
-# VaR 기반 위험도 측정
-def calc_var(df, confidence_level=0.05, n_simulations=10000):
-    returns = df['close'].pct_change().dropna()
-    var_value = np.percentile(returns, confidence_level * 100)
-    return var_value
-```
-
-## 📈 성과 분석
-
-### 거래 정확도 분석
-- **상승 예측 정확도**: 72.3% (Random Forest 모델)
-- **하락 예측 정확도**: 68.1% (Random Forest 모델)
-- **전체 예측 정확도**: 70.2%
-
-### 리스크 지표
-- **VaR (95% 신뢰구간)**: 평균 $1,428
-- **최대 연속 손실**: 0회 (마진콜 미발생)
-- **평균 거래 기간**: 2.3일
-- **수수료 효율성**: 17.3% (수익 대비)
-
-### 성과 등급 분포
-- **🏆 Excellent (2000%+)**: 33.3% (1개 백테스트)
-- **🥇 Outstanding (1000-2000%)**: 66.7% (2개 백테스트)
-- **✅ 수익성**: 100% (모든 백테스트 수익)
 
 ## 🎯 향후 개발 계획
 
@@ -280,6 +276,7 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 
 ---
+
 
 
 
