@@ -78,7 +78,20 @@ btc_algorithm_trading/
 
 ```
 
-## 📁 주요 구성 요소
+
+
+
+
+
+## 🛠️ 기술 스택
+- [Python](https://www.python.org/) - 파이썬
+- [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
+- [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
+- [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
+- [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
+- [Cursor](https://cursor.com/) - 커서 AI
+
+## 📁 주요 기능
 
 ### 1. **머신러닝 모델** (`ml_model/`)
 - **Random Forest 분류기**: 0.4% 상승 후 1% 상승 확률 예측
@@ -102,19 +115,6 @@ btc_algorithm_trading/
 - **리스크 분석**: VaR, Sharpe Ratio, MDD 등 종합 분석
 - **수수료 모델링**: 실제 거래소 수수료 및 슬리피지 반영
 - **결과 저장**: CSV 형태로 상세한 거래 로그 및 성과 지표 저장
-
-
-
-
-
-## 🛠️ 기술 스택
-- [Python](https://www.python.org/) - 파이썬
-- [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
-- [Scikit-learn](https://scikit-learn.org) - 머신러닝 라이브러리
-- [TA-Lib](https://ta-lib.org) - 기술적 분석 라이브러리
-- [Binance API](https://binance-docs.github.io/apidocs/) - 암호화폐 데이터
-- [Cursor](https://cursor.com/) - 커서 AI
-
 
 
 ## 🔧 핵심 기능
@@ -283,6 +283,7 @@ python btc_martingale_backtest/run_backtest.py
 
 
 ---
+
 
 
 
