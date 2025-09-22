@@ -51,6 +51,38 @@ graph TB
     J --> K[백테스팅 결과 분석]
     K --> L[성과 리포트 생성]
 ```
+
+## 📁 프로젝트 구조
+
+```
+btc_algorithm_trading/
+├── 📊 btc_martingale_backtest/          # 메인 백테스팅 시스템
+│   ├── 🤖 ml_model/                     # 머신러닝 모델
+│   │   ├── rf_1pct_after_0_4pct.py     # Random Forest 모델
+│   │   ├── train_rf_model.py           # 모델 훈련
+│   │   └── metrics.py                  # 성능 평가
+│   ├── 📈 indicator/                    # 기술적 지표
+│   │   ├── feature_engineering.py      # 피처 엔지니어링
+│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
+│   │   └── calc_var.py                 # VaR 계산
+│   ├── 🎯 strategy/                     # 거래 전략
+│   │   ├── strategy_martin.py          # 물타기 전략
+│   │   ├── strategy_new.py             # 개선된 전략
+│   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
+│   ├── 🏦 binance/                      # 거래소 연동
+│   │   ├── fetch_binance_data.py       # 데이터 수집
+│   │   └── binance_calculator.py       # 청산가 계산
+│   ├── 📊 backtest_results/             # 백테스팅 결과
+│   └── 🔄 run_backtest.py              # 메인 실행 파일
+├── 📋 README.md                         # 프로젝트 문서
+
+```
+
+
+
+
+
+
 ## 🛠️ 기술 스택
 - [Python](https://www.python.org/) - 파이썬
 - [Backtrader](https://backtrader.com) - 백테스팅 프레임워크
@@ -123,31 +155,6 @@ def calc_var(df, confidence_level=0.05, n_simulations=10000):
 
 
 
-## 📁 프로젝트 구조
-
-```
-btc_algorithm_trading/
-├── 📊 btc_martingale_backtest/          # 메인 백테스팅 시스템
-│   ├── 🤖 ml_model/                     # 머신러닝 모델
-│   │   ├── rf_1pct_after_0_4pct.py     # Random Forest 모델
-│   │   ├── train_rf_model.py           # 모델 훈련
-│   │   └── metrics.py                  # 성능 평가
-│   ├── 📈 indicator/                    # 기술적 지표
-│   │   ├── feature_engineering.py      # 피처 엔지니어링
-│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
-│   │   └── calc_var.py                 # VaR 계산
-│   ├── 🎯 strategy/                     # 거래 전략
-│   │   ├── strategy_martin.py          # 물타기 전략
-│   │   ├── strategy_new.py             # 개선된 전략
-│   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
-│   ├── 🏦 binance/                      # 거래소 연동
-│   │   ├── fetch_binance_data.py       # 데이터 수집
-│   │   └── binance_calculator.py       # 청산가 계산
-│   ├── 📊 backtest_results/             # 백테스팅 결과
-│   └── 🔄 run_backtest.py              # 메인 실행 파일
-├── 📋 README.md                         # 프로젝트 문서
-
-```
 
 
 ## 📊 성과 지표
@@ -276,6 +283,7 @@ python btc_martingale_backtest/run_backtest.py
 
 
 ---
+
 
 
 
