@@ -65,6 +65,10 @@ btc_algorithm_trading/
 │   │   ├── feature_engineering.py      # 피처 엔지니어링
 │   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
 │   │   └── calc_var.py                 # VaR 계산
+│   ├── 📈 kalmanFilter/                    # 피쳐엔지니어링 시 칼만 필터 적용 (노이즈 제거)
+│   │   ├── feature_engineering.py      # 피처 엔지니어링
+│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
+│   │   └── calc_var.py                 # VaR 계산
 │   ├── 🎯 strategy/                     # 거래 전략
 │   │   ├── strategy_martin.py          # 물타기 전략
 │   │   ├── strategy_new.py             # 개선된 전략
@@ -283,6 +287,7 @@ python btc_martingale_backtest/run_backtest.py
 
 
 ---
+
 
 
 
