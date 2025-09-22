@@ -58,26 +58,26 @@ graph TB
 btc_algorithm_trading/
 ├── 📊 btc_martingale_backtest/          # 메인 백테스팅 시스템
 │   ├── 🤖 ml_model/                     # 머신러닝 모델
-│   │   ├── rf_1pct_after_0_4pct.py     # Random Forest 모델
-│   │   ├── train_rf_model.py           # 모델 훈련
-│   │   └── metrics.py                  # 성능 평가
+│   │   ├── rf_1pct_after_0_4pct.py      # Random Forest 모델
+│   │   ├── train_rf_model.py            # 모델 훈련
+│   │   └── metrics.py                   # 성능 평가
 │   ├── 📈 indicator/                    # 기술적 지표
-│   │   ├── feature_engineering.py      # 피처 엔지니어링
-│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
-│   │   └── calc_var.py                 # VaR 계산
-│   ├── 📈 kalmanFilter/                    # 피쳐엔지니어링 시 칼만 필터 적용 (노이즈 제거)
-│   │   ├── feature_engineering.py      # 피처 엔지니어링
-│   │   ├── squeeze_momentum_core.py    # 스퀴즈 모멘텀
-│   │   └── calc_var.py                 # VaR 계산
+│   │   ├── feature_engineering.py       # 피처 엔지니어링
+│   │   ├── squeeze_momentum_core.py     # 스퀴즈 모멘텀
+│   │   └── calc_var.py                  # VaR 계산
+│   ├── 📈 kalmanFilter/                 # 피쳐엔지니어링 시 칼만 필터 적용 (노이즈 제거)
+│   │   ├── KALMAN_FILTER_README.md      # 칼만 필터 모듈 설명
+│   │   ├── kalman_filter_btc.py         # 칼만 필터 
+│   │   └── test_kalman_integration.py   # 칼만 필터 테스트
 │   ├── 🎯 strategy/                     # 거래 전략
-│   │   ├── strategy_martin.py          # 물타기 전략
-│   │   ├── strategy_new.py             # 개선된 전략
+│   │   ├── strategy_martin.py           # 물타기 전략
+│   │   ├── strategy_new.py              # 개선된 전략
 │   │   └── strategy_martin_bitget_dynamic.pine  # Pine Script 전략
 │   ├── 🏦 binance/                      # 거래소 연동
-│   │   ├── fetch_binance_data.py       # 데이터 수집
-│   │   └── binance_calculator.py       # 청산가 계산
+│   │   ├── fetch_binance_data.py        # 데이터 수집
+│   │   └── binance_calculator.py        # 청산가 계산
 │   ├── 📊 backtest_results/             # 백테스팅 결과
-│   └── 🔄 run_backtest.py              # 메인 실행 파일
+│   └── 🔄 run_backtest.py               # 메인 실행 파일
 ├── 📋 README.md                         # 프로젝트 문서
 
 ```
@@ -287,6 +287,7 @@ python btc_martingale_backtest/run_backtest.py
 
 
 ---
+
 
 
 
